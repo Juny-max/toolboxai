@@ -25,6 +25,7 @@ import {
   PenSquare,
   UserRound,
   ClipboardCheck,
+  ClipboardList,
   Lightbulb,
   Gamepad2,
   Film,
@@ -33,6 +34,7 @@ import {
   Plane,
   RectangleHorizontal,
   Wallet,
+  ShoppingCart,
 } from 'lucide-react';
 
 export type Tool = {
@@ -256,6 +258,22 @@ export const tools: Tool[] = [
     slug: 'ai-trip-planner',
     description: 'Create a personalized travel itinerary in seconds.',
     icon: Plane,
+    category: 'AI',
+    isAi: true,
+  },
+  {
+    name: 'Meeting Notes Summarizer',
+    slug: 'meeting-notes',
+    description: 'Turn messy transcripts into actionable recaps with decisions and tasks.',
+    icon: ClipboardList,
+    category: 'AI',
+    isAi: true,
+  },
+  {
+    name: 'Smart Shopping List',
+    slug: 'smart-shopping-list',
+    description: 'Build a budget-aware grocery plan with nutrition and meal prep tips.',
+    icon: ShoppingCart,
     category: 'AI',
     isAi: true,
   },
