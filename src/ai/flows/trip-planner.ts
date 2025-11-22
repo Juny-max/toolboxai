@@ -44,6 +44,11 @@ Return a JSON object with these exact fields:
 - summary: string (brief overview)
 - itinerary: array of objects with {day: number, title: string, activities: array of {time: string, description: string, details?: string}}
 
+Guidelines:
+- Make each day's title and activities distinct; avoid repeating the same text across days.
+- For trips longer than 7 days, mix in lighter "reset" moments (e.g., slower mornings, free afternoons) and vary neighborhoods or themes.
+- Reference the listed interests directly inside activities where possible.
+
 Return ONLY the JSON object, nothing else.`;
 
   const baseOptions = {
@@ -103,33 +108,15 @@ function buildFallbackTripPlan(options: {
   const dayPlans = Array.from({ length: safeDuration }, (_, index) => {
     const dayNumber = index + 1;
     const interestFocus = interestList[index % interestList.length];
-    const title = `${interestFocus} Focus`;
-
-    const activityTemplates = travelPace === 'fast-paced'
-      ? [
-          { time: '08:30', label: 'Kickstart the morning with a guided experience.' },
-          { time: '12:30', label: 'Discover a local favorite for lunch and culture.' },
-          { time: '15:30', label: 'Stack another must-see or workshop into the afternoon.' },
-          { time: '19:30', label: 'Wrap the evening with an event or scenic viewpoint.' },
-        ]
-      : travelPace === 'relaxed'
-      ? [
-          { time: 'Morning', label: 'Ease into the day with a gentle highlight and coffee stop.' },
-          { time: 'Afternoon', label: 'Enjoy an unrushed visit or neighborhood stroll tied to your interests.' },
-          { time: 'Evening', label: 'Wind down with a comfortable dinner or sunset view.' },
-        ]
-      : [
-          { time: '09:00', label: 'Start the day with a signature experience.' },
-          { time: '13:00', label: 'Sample regional flavors or a casual lunch spot.' },
-          { time: '16:00', label: 'Add a flexible activity or guided tour.' },
-          { time: '20:00', label: 'Close with a relaxed evening recommendation.' },
-        ];
-
-    const activities = activityTemplates.map((template, activityIndex) => ({
-      time: template.time,
-      description: template.label.replace('your interests', interestFocus.toLowerCase()),
-      details: `Focus on ${interestFocus.toLowerCase()} around ${safeDestination}. Consider pre-booking if spots are limited. (#${dayNumber}${activityIndex + 1})`,
-    }));
+    const isRechargeDay = dayNumber > 3 && dayNumber % 4 === 0;
+    const title = buildDayTitle(interestFocus, dayNumber, isRechargeDay);
+    const activities = buildActivitiesForDay({
+      travelPace,
+      dayNumber,
+      interestFocus,
+      destination: safeDestination,
+      isRechargeDay,
+    });
 
     return {
       day: dayNumber,
@@ -143,4 +130,187 @@ function buildFallbackTripPlan(options: {
     summary,
     itinerary: dayPlans,
   };
+}
+
+function buildDayTitle(interestFocus: string, dayNumber: number, isRechargeDay: boolean): string {
+  const cleanInterest = capitalizeWords(interestFocus);
+  if (isRechargeDay) {
+    return `Recharge Day ${dayNumber}: Flexible time around ${cleanInterest}`;
+  }
+
+  const variants = [
+    'Highlights',
+    'Neighborhood Immersion',
+    'Culinary Trail',
+    'Outdoor Escape',
+    'Creative Corners',
+    'Historic Journey',
+    'Market Strolls',
+    'Nightlife Sampler',
+  ];
+  const suffix = variants[(dayNumber - 1) % variants.length];
+  return `${cleanInterest} ${suffix}`;
+}
+
+function buildActivitiesForDay(options: {
+  travelPace: TripPlannerInput['travelPace'];
+  dayNumber: number;
+  interestFocus: string;
+  destination: string;
+  isRechargeDay: boolean;
+}): TripPlannerOutput['itinerary'][number]['activities'] {
+  const { travelPace, dayNumber, interestFocus, destination, isRechargeDay } = options;
+  const interestLower = interestFocus.toLowerCase();
+
+  if (isRechargeDay) {
+    return getRechargeActivities({ destination, interest: interestLower, dayNumber });
+  }
+
+  const library = getPaceLibrary(travelPace);
+  const activityCount = travelPace === 'relaxed' ? 3 : 4;
+  const startIndex = (dayNumber - 1) % library.length;
+
+  return Array.from({ length: activityCount }, (_, slot) => {
+    const template = library[(startIndex + slot) % library.length];
+    return {
+      time: template.time,
+      description: template.description
+        .replace('{interest}', interestLower)
+        .replace('{destination}', destination),
+      details: template.details
+        .replace('{interest}', interestLower)
+        .replace('{destination}', destination)
+        .replace('{day}', `day ${dayNumber}`),
+    };
+  });
+}
+
+type PaceTemplate = {
+  time: string;
+  description: string;
+  details: string;
+};
+
+function getPaceLibrary(pace: TripPlannerInput['travelPace']): PaceTemplate[] {
+  if (pace === 'fast-paced') {
+    return [
+      {
+        time: '07:30',
+        description: 'Start early with a sunrise {interest} activity overlooking {destination}.',
+        details: 'Bring tickets or passes arranged in advance so {day} kicks off smoothly.',
+      },
+      {
+        time: '10:00',
+        description: 'Dive into a guided tour focused on {interest}.',
+        details: 'Look for specialty guides that highlight unique angles of {destination}.',
+      },
+      {
+        time: '13:30',
+        description: 'Sample a quick lunch spot known for {interest} lovers.',
+        details: 'Reserve a table or grab takeaway so you can keep momentum.',
+      },
+      {
+        time: '15:30',
+        description: 'Stack another marquee stop or workshop tied to {interest}.',
+        details: 'Group nearby attractions to maximize your afternoon in {destination}.',
+      },
+      {
+        time: '18:00',
+        description: 'Catch a signature evening event or performance.',
+        details: 'Scan local listings for pop-up happenings that match your interests.',
+      },
+      {
+        time: '21:00',
+        description: 'Wrap the night with a skyline view or late-night eatery.',
+        details: 'Balance the schedule with a slower nightcap spot when needed.',
+      },
+    ];
+  }
+
+  if (pace === 'relaxed') {
+    return [
+      {
+        time: 'Morning',
+        description: 'Ease into the day with a coffee or brunch spot connected to {interest}.',
+        details: 'Pick a neighborhood cafe and linger while planning the rest of {day}.',
+      },
+      {
+        time: 'Late Morning',
+        description: 'Enjoy a gentle stroll or gallery focused on {interest}.',
+        details: 'Keep the visit short and soak in the atmosphere without rushing.',
+      },
+      {
+        time: 'Afternoon',
+        description: 'Add an optional workshop or scenic break that relates to {interest}.',
+        details: 'Leave space for downtime or spontaneous finds around {destination}.',
+      },
+      {
+        time: 'Evening',
+        description: 'Choose a relaxed dinner or sunset spot with an {interest} twist.',
+        details: 'Book patio seating or a quiet table to unwind after light exploring.',
+      },
+      {
+        time: 'Night',
+        description: 'If you still have energy, take a short night walk or open-air show.',
+        details: 'Head back early to recharge for the next day if you feel tired.',
+      },
+    ];
+  }
+
+  return [
+    {
+      time: '08:30',
+      description: 'Kick off with a signature {interest} highlight in {destination}.',
+      details: 'Pre-book popular stops to avoid queues and keep {day} on schedule.',
+    },
+    {
+      time: '11:30',
+      description: 'Explore a different district that showcases {interest} from another angle.',
+      details: 'Use public transit or rideshare to reach a new neighborhood quickly.',
+    },
+    {
+      time: '14:30',
+      description: 'Add an interactive experience or tasting aligned with {interest}.',
+      details: 'Workshops and classes can break up the day and create souvenirs.',
+    },
+    {
+      time: '17:30',
+      description: 'Leave room for a flexible slot: pop-up exhibits, markets, or outdoor time.',
+      details: 'Scan local event calendars earlier in {day} for timely add-ons.',
+    },
+    {
+      time: '20:00',
+      description: 'Savor an evening activity with ambiance—think rooftop views or live music.',
+      details: 'Reserve tickets or tables to end the day on a memorable note.',
+    },
+  ];
+}
+
+function getRechargeActivities(options: { destination: string; interest: string; dayNumber: number }): TripPlannerOutput['itinerary'][number]['activities'] {
+  const { destination, interest, dayNumber } = options;
+  return [
+    {
+      time: 'Morning',
+      description: 'Slow breakfast and planning session with light journaling or photos.',
+      details: `Pick a cafe near your stay to review highlights so far and map out flexible ideas for ${destination}.`,
+    },
+    {
+      time: 'Midday',
+      description: `Choose a low-effort {interest}-adjacent outing or relax at a park.`,
+      details: `Keep commitments loose on day ${dayNumber}; opt for spa time, hotel amenities, or a breezy promenade.`,
+    },
+    {
+      time: 'Evening',
+      description: 'Casual dinner and early night or optional drop-in event.',
+      details: 'Scope out sunset viewpoints or indoor lounges that do not require pre-booking.',
+    },
+  ];
+}
+
+function capitalizeWords(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
 }
