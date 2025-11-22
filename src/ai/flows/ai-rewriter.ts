@@ -1,9 +1,9 @@
 
 'use server';
 
-import { google } from '@/ai/client';
+import { generateWithFallback } from '@/ai/generate';
+import { cleanJsonResponse } from '@/ai/utils';
 import { z } from 'zod';
-import { streamText } from 'ai';
 
 const AiRewriterInputSchema = z.object({
   text: z.string().describe('The text to be rewritten or summarized.'),
@@ -21,24 +21,18 @@ export type AiRewriterOutput = z.infer<typeof AiRewriterOutputSchema>;
 export async function aiRewriter(input: AiRewriterInput): Promise<AiRewriterOutput> {
     const { text, mode, tone } = AiRewriterInputSchema.parse(input);
 
-    const result = await streamText({
-      model: google('gemini-1.5-flash'),
-      system: 'You are a JSON API. You must strictly adhere to the defined output schema.',
-      prompt: `You are an AI assistant. Your task is determined by the 'mode'.
-If the 'mode' is 'rewrite', you must rewrite the provided text in the specified 'tone'.
-If the 'mode' is 'summarize', you must summarize the provided text concisely.
+    const resultText = await generateWithFallback({
+      system: 'You are a JSON API. Return ONLY valid JSON, no markdown, no code blocks, no explanatory text.',
+      prompt: `Task: ${mode === 'rewrite' ? `Rewrite the text in ${tone || 'neutral'} tone` : 'Summarize the text concisely'}
 
-Mode: ${mode}
-${tone ? `Tone: ${tone}` : ''}
+Text:
+"${text}"
 
-Text to process:
-"${text}"`,
-      response_format: {
-        type: 'json_object',
-        schema: AiRewriterOutputSchema,
-      },
+Return a JSON object with this exact field:
+- result: string (the ${mode === 'rewrite' ? 'rewritten' : 'summarized'} text)
+
+Return ONLY the JSON object, nothing else.`,
     });
 
-    const json = await result.text;
-    return AiRewriterOutputSchema.parse(JSON.parse(json));
+    return AiRewriterOutputSchema.parse(JSON.parse(cleanJsonResponse(resultText)));
 }

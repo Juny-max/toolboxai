@@ -1,9 +1,9 @@
 
 'use server';
 
-import { google } from '@/ai/client';
+import { generateWithFallback } from '@/ai/generate';
+import { cleanJsonResponse } from '@/ai/utils';
 import { z } from 'zod';
-import { streamText } from 'ai';
 
 const TopicExplainerInputSchema = z.object({
   topic: z.string().describe('The topic or complex text to explain.'),
@@ -21,24 +21,20 @@ export type TopicExplainerOutput = z.infer<typeof TopicExplainerOutputSchema>;
 export async function topicExplainer(input: TopicExplainerInput): Promise<TopicExplainerOutput> {
   const { topic, level } = TopicExplainerInputSchema.parse(input);
 
-  const result = await streamText({
-    model: google('gemini-1.5-flash'),
-    system: 'You are a JSON API. You must strictly adhere to the defined output schema.',
+  const resultText = await generateWithFallback({
+    system: 'You are a JSON API. Return ONLY valid JSON, no markdown, no code blocks, no explanatory text.',
     prompt: `Explain the following topic or text to me at the level of "${level}".
 
-Your explanation should include:
-1. A simple, clear **explanation**.
-2. A relatable **analogy**.
-3. A few **key points** as bullet points.
+Return a JSON object with these exact fields:
+- explanation: string (simple, clear explanation)
+- analogy: string (relatable analogy)
+- keyPoints: array of strings (key takeaways)
 
 Topic/Text:
-"${topic}"`,
-    response_format: {
-      type: 'json_object',
-      schema: TopicExplainerOutputSchema,
-    },
+"${topic}"
+
+Return ONLY the JSON object, nothing else.`,
   });
 
-  const json = await result.text;
-  return TopicExplainerOutputSchema.parse(JSON.parse(json));
+  return TopicExplainerOutputSchema.parse(JSON.parse(cleanJsonResponse(resultText)));
 }

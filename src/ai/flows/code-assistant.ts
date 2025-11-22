@@ -1,9 +1,9 @@
 
 'use server';
 
-import { google } from '@/ai/client';
+import { generateWithFallback } from '@/ai/generate';
+import { cleanJsonResponse } from '@/ai/utils';
 import { z } from 'zod';
-import { streamText } from 'ai';
 
 const CodeAssistantInputSchema = z.object({
   code: z.string().describe('The code snippet to analyze.'),
@@ -21,26 +21,21 @@ export type CodeAssistantOutput = z.infer<typeof CodeAssistantOutputSchema>;
 export async function codeAssistant(input: CodeAssistantInput): Promise<CodeAssistantOutput> {
     const { code, language } = CodeAssistantInputSchema.parse(input);
 
-    const result = await streamText({
-      model: google('gemini-1.5-flash'),
-      system: 'You are a JSON API. You must strictly adhere to the defined output schema.',
-      prompt: `You are an expert code reviewer. Analyze the following ${language} code snippet.
+    const resultText = await generateWithFallback({
+      system: 'You are a JSON API. Return ONLY valid JSON, no markdown, no code blocks, no explanatory text.',
+      prompt: `Analyze this ${language} code:
 
-Code:
 \`\`\`${language}
 ${code}
 \`\`\`
 
-Provide the following analysis. If a section has no findings, you MUST return the string "None" for that field.
-1.  **Explanation**: A clear and concise explanation of what the code does.
-2.  **Potential Errors**: Identify any potential bugs, logical errors, or edge cases that might not be handled.
-3.  **Suggestions**: Offer suggestions for improvement, focusing on best practices, readability, and performance.`,
-      response_format: {
-        type: 'json_object',
-        schema: CodeAssistantOutputSchema,
-      },
+Return a JSON object with these exact fields:
+- explanation: string (what the code does)
+- errors: string (potential bugs or "None")
+- suggestions: string (improvements or "None")
+
+Return ONLY the JSON object, nothing else.`,
     });
 
-    const json = await result.text;
-    return CodeAssistantOutputSchema.parse(JSON.parse(json));
+    return CodeAssistantOutputSchema.parse(JSON.parse(cleanJsonResponse(resultText)));
 }

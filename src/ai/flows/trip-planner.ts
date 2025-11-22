@@ -1,9 +1,9 @@
 
 'use server';
 
-import { google } from '@/ai/client';
+import { generateWithFallback } from '@/ai/generate';
+import { cleanJsonResponse } from '@/ai/utils';
 import { z } from 'zod';
-import { streamText } from 'ai';
 
 const ActivitySchema = z.object({
   time: z.string().describe('Suggested time for the activity (e.g., "9:00 AM" or "Afternoon").'),
@@ -35,25 +35,19 @@ export type TripPlannerOutput = z.infer<typeof TripPlannerOutputSchema>;
 export async function tripPlanner(input: TripPlannerInput): Promise<TripPlannerOutput> {
   const { destination, duration, interests, travelPace } = TripPlannerInputSchema.parse(input);
 
-  const result = await streamText({
-    model: google('gemini-1.5-flash'),
-    system: 'You are a JSON API. You must strictly adhere to the defined output schema.',
-    prompt: `You are an expert travel agent. Create a personalized trip itinerary based on the user's preferences.
-
-Destination: ${destination}
-Duration: ${duration} days
+  const resultText = await generateWithFallback({
+    system: 'You are a JSON API. Return ONLY valid JSON, no markdown, no code blocks, no explanatory text.',
+    prompt: `Create a ${duration}-day trip itinerary for ${destination}.
 Interests: ${interests.join(', ')}
-Travel Pace: ${travelPace}
+Pace: ${travelPace}
 
-Generate a day-by-day itinerary that is logical and geographically sensible. Include a mix of activities based on the user's interests. For each activity, provide a suggested time and a brief description.
+Return a JSON object with these exact fields:
+- tripTitle: string (catchy title)
+- summary: string (brief overview)
+- itinerary: array of objects with {day: number, title: string, activities: array of {time: string, description: string, details?: string}}
 
-The final output must be a valid JSON object that adheres to the provided schema.`,
-    response_format: {
-      type: 'json_object',
-      schema: TripPlannerOutputSchema,
-    },
+Return ONLY the JSON object, nothing else.`,
   });
 
-  const json = await result.text;
-  return TripPlannerOutputSchema.parse(JSON.parse(json));
+  return TripPlannerOutputSchema.parse(JSON.parse(cleanJsonResponse(resultText)));
 }

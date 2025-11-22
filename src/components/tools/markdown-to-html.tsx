@@ -12,7 +12,8 @@ export function MarkdownToHtml() {
 
   const convertedHtml = useMemo(() => {
     try {
-      return marked.parse(markdown);
+      const result = marked.parse(markdown, { async: false });
+      return typeof result === "string" ? result : "";
     } catch (e) {
       return "Error converting Markdown.";
     }

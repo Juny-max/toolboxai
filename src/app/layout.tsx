@@ -6,6 +6,9 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Junybase - Your All-in-One Online Utility Toolkit',
   description: 'A curated collection of smart, fast, and easy-to-use tools to boost your productivity. From developers to designers, we\'ve got you covered.',
+  icons: {
+    icon: '/favicon.png',
+  },
 };
 
 export default function RootLayout({

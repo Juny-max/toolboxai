@@ -3,12 +3,13 @@
 
 import * as React from "react"
 import { Label, Pie, PieChart, Sector, Cell } from "recharts"
+import type { TooltipProps } from "recharts"
+import type { ContentType } from "recharts/types/component/Tooltip"
 import { PieSectorDataItem } from "recharts/types/polar/Pie"
 
 import {
   ChartConfig,
   ChartContainer,
-  ChartStyle,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
@@ -19,6 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+
+const defaultTooltipContent = (((props: TooltipProps<any, any>) => (
+  <ChartTooltipContent {...(props as any)} hideLabel />
+)) as unknown) as ContentType<any, any>
 
 const DonutChart = React.forwardRef<
   HTMLDivElement,
@@ -57,6 +62,16 @@ const DonutChart = React.forwardRef<
   ) => {
     const [activeChart, setActiveChart] = React.useState(activeMetric)
     const activeCategory = activeMetric || activeChart
+
+    const tooltipContent = React.useMemo(() => {
+      if (!customTooltipContent) {
+        return defaultTooltipContent
+      }
+      return (((props: TooltipProps<any, any>) => {
+        const CustomContent = customTooltipContent
+        return <CustomContent {...(props as any)} />
+      }) as unknown) as ContentType<any, any>
+    }, [customTooltipContent])
 
     const chartConfig = React.useMemo(() => {
       if (customChartConfig) return customChartConfig;
@@ -101,11 +116,7 @@ const DonutChart = React.forwardRef<
           className="min-h-[250px] w-full"
         >
           <PieChart>
-            <ChartStyle />
-            <ChartTooltip
-              cursor={false}
-              content={customTooltipContent || <ChartTooltipContent hideLabel />}
-            />
+            <ChartTooltip cursor={false} content={tooltipContent as any} />
             <Pie
               data={data}
               dataKey={category}
@@ -205,9 +216,11 @@ const DonutChart = React.forwardRef<
                   labelLine: false,
                 })}
             >
-              {data.map((entry, i) => (
-                <Cell key={`cell-${i}`} fill={chartConfig[entry.name]?.color} />
-              ))}
+              {data.map((entry, i) => {
+                const key = entry[index]
+                const fill = chartConfig[key]?.color ?? `hsl(var(--chart-${(i % 5) + 1}))`
+                return <Cell key={`cell-${i}`} fill={fill} />
+              })}
               {variant === "donut" && (
                 <Label
                   content={({ viewBox }) => {

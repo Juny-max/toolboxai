@@ -1,9 +1,9 @@
 
 'use server';
 
-import { google } from '@/ai/client';
+import { generateWithFallback } from '@/ai/generate';
+import { cleanJsonResponse } from '@/ai/utils';
 import { z } from 'zod';
-import { streamText } from 'ai';
 
 const OriginalityCheckerInputSchema = z.object({
   text: z.string().describe('The text to be checked for originality.'),
@@ -25,24 +25,19 @@ export type OriginalityCheckerOutput = z.infer<typeof OriginalityCheckerOutputSc
 export async function originalityChecker(input: OriginalityCheckerInput): Promise<OriginalityCheckerOutput> {
   const { text } = OriginalityCheckerInputSchema.parse(input);
 
-  const result = await streamText({
-    model: google('gemini-1.5-flash'),
-    system: 'You are a JSON API. You must strictly adhere to the defined output schema.',
-    prompt: `You are an AI designed to detect plagiarism and assess text originality. Analyze the following text and provide a report.
+  const resultText = await generateWithFallback({
+    system: 'You are a JSON API. Return ONLY valid JSON, no markdown, no code blocks, no explanatory text.',
+    prompt: `Analyze this text for originality:
 
-Your analysis should include:
-1.  An **originality score** from 0 (plagiarized) to 100 (completely original).
-2.  A concise **summary** of your findings.
-3.  A list of specific **flagged passages** that seem unoriginal, common, or too similar to existing content, along with the reason for each flag. If no passages are flagged, return an empty array.
+"${text}"
 
-Text to analyze:
-"${text}"`,
-    response_format: {
-      type: 'json_object',
-      schema: OriginalityCheckerOutputSchema,
-    },
+Return a JSON object with these exact fields:
+- originalityScore: number (0-100, where 100 is completely original)
+- summary: string (brief findings)
+- flaggedPassages: array of objects with {passage: string, reason: string} (or empty array if none)
+
+Return ONLY the JSON object, nothing else.`,
   });
 
-  const json = await result.text;
-  return OriginalityCheckerOutputSchema.parse(JSON.parse(json));
+  return OriginalityCheckerOutputSchema.parse(JSON.parse(cleanJsonResponse(resultText)));
 }

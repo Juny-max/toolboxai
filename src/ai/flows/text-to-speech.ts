@@ -1,6 +1,5 @@
 'use server';
 
-import { google } from '@/ai/client';
 import { z } from 'zod';
 
 const TextToSpeechInputSchema = z.object({

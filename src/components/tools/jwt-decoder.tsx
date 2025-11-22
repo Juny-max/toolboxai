@@ -76,16 +76,17 @@ export function JwtDecoder() {
   );
 }
 
-function DecodedSection({ title, content, isSignature = false }: { title: string, content: string, isSignature?: boolean }) {
+function DecodedSection({ title, content, isSignature = false }: { title: string, content?: string, isSignature?: boolean }) {
+  const safeContent = content ?? "";
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">{title}</CardTitle>
-        <CopyButton textToCopy={content} />
+        <CopyButton textToCopy={safeContent} />
       </CardHeader>
       <CardContent>
         <pre className={`bg-muted p-4 rounded-md text-sm overflow-x-auto font-code ${isSignature ? 'text-red-400' : ''}`}>
-          <code>{content}</code>
+          <code>{safeContent}</code>
         </pre>
       </CardContent>
     </Card>

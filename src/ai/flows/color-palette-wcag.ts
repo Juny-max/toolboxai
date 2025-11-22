@@ -1,9 +1,9 @@
 
 'use server';
 
-import { google } from '@/ai/client';
+import { generateWithFallback } from '@/ai/generate';
+import { cleanJsonResponse } from '@/ai/utils';
 import { z } from 'zod';
-import { streamText } from 'ai';
 
 const ColorPaletteInputSchema = z.object({
   primaryColor: z.string().describe('The primary color in hex format (e.g., #RRGGBB).'),
@@ -44,18 +44,17 @@ const getContrastRatio = (color1: string, color2: string): number => {
 export async function generateWcagColorPalette(input: ColorPaletteInput): Promise<{ palette: string[], contrastRatios: number[] }> {
     const { primaryColor, numColors } = ColorPaletteInputSchema.parse(input);
 
-    const result = await streamText({
-      model: google('gemini-1.5-flash'),
-      system: 'You are a JSON API. You must strictly adhere to the defined output schema.',
-      prompt: `Generate a harmonious and accessible color palette with ${numColors} colors, starting with the primary color ${primaryColor}. The palette should be suitable for a web application and ensure good contrast. Provide the colors as an array of hex codes.`,
-      response_format: {
-        type: 'json_object',
-        schema: ColorPaletteOutputSchema,
-      },
+    const resultText = await generateWithFallback({
+      system: 'You are a JSON API. Return ONLY valid JSON, no markdown, no code blocks, no explanatory text.',
+      prompt: `Generate ${numColors} harmonious colors starting with ${primaryColor}.
+
+Return a JSON object with this exact field:
+- palette: array of strings (hex color codes like "#RRGGBB")
+
+Return ONLY the JSON object, nothing else.`,
     });
     
-    const json = await result.text;
-    const parsedResult = ColorPaletteOutputSchema.parse(JSON.parse(json));
+    const parsedResult = ColorPaletteOutputSchema.parse(JSON.parse(cleanJsonResponse(resultText)));
     
     const contrastRatios = parsedResult.palette.map(color => getContrastRatio(input.primaryColor, color));
     return { ...parsedResult, contrastRatios };
