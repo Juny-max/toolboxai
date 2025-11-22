@@ -147,96 +147,320 @@ function buildFallbackGuide(options: {
   const roomLabelRaw = locationContext.trim();
   const roomLabel = roomLabelRaw.length > 0 ? roomLabelRaw : 'workspace';
   const limitedTools = toolsAvailable && toolsAvailable.length > 0 ? toolsAvailable.slice(0, 6) : [];
-  const defaultTools = [
-    { name: 'Adjustable wrench', optional: false, alternative: 'Slip-joint pliers' },
-    { name: 'Bucket or catch pan', optional: false },
-    { name: 'Shop towels or rags', optional: false },
-    { name: 'Non-contact voltage tester', optional: true },
-    { name: 'Flashlight', optional: false },
-    { name: 'Utility knife', optional: true },
-  ];
+  const issueCategory = classifyIssue(normalizedIssue);
+  const template = getFallbackTemplate(issueCategory, { roomLabel, issueSnippet });
+
   const requiredTools = limitedTools.length
     ? limitedTools.map((tool) => ({ name: tool, optional: false }))
-    : defaultTools;
+    : template.requiredTools;
 
   const difficulty = skillLevel === 'beginner' ? 'moderate' : skillLevel === 'intermediate' ? 'moderate' : 'advanced';
-  const estimatedTime = 'About 90 minutes including prep and cleanup.';
+  const estimatedTime = template.estimatedTime;
   const constraintNote = constraints ? constraints.trim().slice(0, 140) : 'No special constraints given.';
-  const overview = `Fallback plan to stabilize and repair the issue at the ${roomLabel}. Focus stays on safe containment and replacement steps for ${issueSnippet}.`;
 
   return {
-    overview: overview.length > 230 ? `${overview.slice(0, 227)}...` : overview,
+    overview: template.overview,
     difficulty,
     estimatedTime,
-    safetyGear: ['Nitrile gloves', 'Safety glasses', 'Closed-toe shoes'],
+    safetyGear: template.safetyGear,
     requiredTools,
+    materials: template.materials,
+    preparation: template.preparation,
+    stepByStep: template.stepByStep,
+    validationChecks: template.validationChecks,
+    troubleshooting: template.troubleshooting,
+    whenToCallProfessional: [...template.whenToCallProfessional, `Constraints limit the fix: ${constraintNote}`],
+    cleanupAndMaintenance: template.cleanupAndMaintenance,
+  };
+}
+
+type IssueCategory = 'electrical' | 'plumbing' | 'general';
+
+function classifyIssue(text: string): IssueCategory {
+  const lowered = text.toLowerCase();
+  if (/(fan|motor|wiring|electrical|switch|outlet|breaker|circuit|panel|ceiling light|ceiling fan)/.test(lowered)) {
+    return 'electrical';
+  }
+  if (/(leak|water|pipe|plumb|drip|drain|faucet|sink|toilet|supply line|trap)/.test(lowered)) {
+    return 'plumbing';
+  }
+  return 'general';
+}
+
+type FallbackTemplate = {
+  overview: string;
+  estimatedTime: string;
+  safetyGear: string[];
+  requiredTools: {
+    name: string;
+    optional?: boolean;
+    alternative?: string;
+  }[];
+  materials: string[];
+  preparation: string[];
+  stepByStep: {
+    title: string;
+    detail: string;
+    caution?: string;
+  }[];
+  validationChecks: string[];
+  troubleshooting: {
+    symptom: string;
+    fix: string;
+  }[];
+  whenToCallProfessional: string[];
+  cleanupAndMaintenance: string[];
+};
+
+function getFallbackTemplate(category: IssueCategory, context: { roomLabel: string; issueSnippet: string }): FallbackTemplate {
+  const { roomLabel } = context;
+  const issueFocus = context.issueSnippet.length > 140 ? `${context.issueSnippet.slice(0, 137)}...` : context.issueSnippet;
+
+  const truncate = (text: string, limit = 230) => (text.length > limit ? `${text.slice(0, limit - 3)}...` : text);
+
+  if (category === 'electrical') {
+    return {
+      overview: truncate(`Fallback electrical checklist for the ${roomLabel}, aimed at restoring function to ${issueFocus}.`),
+      estimatedTime: 'About 90 minutes including prep, testing, and cleanup.',
+      safetyGear: ['Insulated gloves', 'Safety glasses', 'Non-slip shoes'],
+      requiredTools: [
+        { name: 'Non-contact voltage tester', optional: false },
+        { name: 'Insulated screwdriver set', optional: false },
+        { name: 'Step ladder', optional: false },
+        { name: 'Needle-nose pliers', optional: false },
+        { name: 'Wire stripper', optional: true },
+      ],
+      materials: [
+        'Matching replacement electrical component (capacitor, switch, etc.)',
+        'Assorted wire connectors rated for the circuit',
+        'Electrical contact cleaner or compressed air',
+        'Zip ties for cable management',
+      ],
+      preparation: [
+        'Switch off the breaker feeding the area and tag it before starting.',
+        'Verify power is off with a non-contact tester at the work box.',
+        `Set up a stable ladder and a tray for screws near the ${roomLabel}.`,
+      ],
+      stepByStep: [
+        {
+          title: 'Kill power and open access',
+          detail: `Confirm the circuit is de-energized, then remove trim or canopy to expose the wiring tied to ${issueFocus.toLowerCase()}.`,
+          caution: 'Never work on live wires; retest with the voltage tester before touching conductors.',
+        },
+        {
+          title: 'Inspect wiring and components',
+          detail: 'Check connectors, pull chains, capacitors, and mounting screws for heat damage, looseness, or broken parts.',
+          caution: 'Replace scorched wires instead of taping over damaged insulation.',
+        },
+        {
+          title: 'Service or replace failed parts',
+          detail: 'Swap faulty components with matching replacements and snug screws while supporting the motor housing.',
+          caution: 'Keep wire nuts fully seated and group conductors neatly.',
+        },
+        {
+          title: 'Secure wiring and reassemble',
+          detail: `Route wires away from moving parts, tighten mounting hardware, and reinstall canopy covers in the ${roomLabel}.`,
+          caution: 'Do not pinch conductors between metal edges when closing the housing.',
+        },
+        {
+          title: 'Restore power and test',
+          detail: 'Turn the breaker back on, verify each speed, light, and direction control, and listen for unusual noise.',
+          caution: 'Cut power immediately if the fan sparks, hums loudly, or trips the breaker.',
+        },
+      ],
+      validationChecks: [
+        'Fan starts on every speed without hesitation or flicker.',
+        'No wobble, grinding, or burnt odor after five minutes of runtime.',
+        `Lights or accessories controlled from the ${roomLabel} switch respond normally.`,
+      ],
+      troubleshooting: [
+        {
+          symptom: 'Fan still silent after repairs.',
+          fix: 'Confirm supply voltage in the ceiling box and test the wall switch or remote controls.',
+        },
+        {
+          symptom: 'Breaker trips when power is restored.',
+          fix: 'Inspect for pinched wires, crossed conductors, or screws touching bare metal, then re-test.',
+        },
+        {
+          symptom: 'Fan runs but wobbles or rattles.',
+          fix: 'Tighten blade screws and balance the assembly using the manufacturer kit.',
+        },
+      ],
+      whenToCallProfessional: [
+        'Breaker will not reset or trips immediately on startup.',
+        'Wiring shows scorch marks, melted insulation, or aluminum branch conductors.',
+        'Fan box or ceiling support feels loose or is not rated for fan loads.',
+        `You are unsure how to match electrical codes or wiring conventions in the ${roomLabel}.`,
+      ],
+      cleanupAndMaintenance: [
+        'Collect all screws and packaging, and secure spare parts in a labeled bag.',
+        'Dispose of failed electrical components according to local e-waste rules.',
+        'Log the repair date and parts replaced for future reference.',
+      ],
+    };
+  }
+
+  if (category === 'plumbing') {
+    return {
+      overview: truncate(`Fallback plumbing response for the ${roomLabel}, keeping ${issueFocus} under control while you swap failing parts.`),
+      estimatedTime: 'Around 75 minutes including cleanup and leak checks.',
+      safetyGear: ['Water-resistant gloves', 'Safety glasses', 'Non-slip shoes'],
+      requiredTools: [
+        { name: 'Adjustable wrench', optional: false, alternative: 'Slip-joint pliers' },
+        { name: 'Bucket or catch pan', optional: false },
+        { name: 'Shop towels or rags', optional: false },
+        { name: 'Plumber tape or joint compound', optional: false },
+        { name: 'Flashlight', optional: false },
+      ],
+      materials: [
+        'Replacement gasket, trap, or fitting sized for the leak',
+        'Fresh plumber tape or joint compound',
+        'Microfiber towels or sponges for wipe-down',
+        'Disinfectant spray to sanitize surfaces',
+      ],
+      preparation: [
+        `Shut off water supplying the ${roomLabel} fixture and relieve pressure.`,
+        'Place a bucket or pan under the work area to catch residual water.',
+        'Clear nearby storage and lay down towels to protect surfaces.',
+      ],
+      stepByStep: [
+        {
+          title: 'Stabilize the leak area',
+          detail: 'Close valves, drain remaining water into the bucket, and dry surfaces before disassembly.',
+          caution: 'Avoid leaving pressurized lines open without support or supervision.',
+        },
+        {
+          title: 'Inspect and mark components',
+          detail: `Identify cracked fittings, worn washers, or corroded traps linked to ${issueFocus.toLowerCase()}.`,
+          caution: 'Photograph assemblies before removing multiple joints.',
+        },
+        {
+          title: 'Disassemble the damaged parts',
+          detail: 'Loosen fittings slowly, supporting pipes to prevent strain on upstream connections.',
+          caution: 'Wear gloves to avoid cuts from sharp edges or mineral buildup.',
+        },
+        {
+          title: 'Install replacements and seal joints',
+          detail: 'Fit new components, apply plumber tape or compound, and tighten by hand plus a quarter turn.',
+          caution: 'Do not over-tighten plastic threads or compression nuts.',
+        },
+        {
+          title: 'Restore service and observe',
+          detail: 'Open the valve slowly, check each joint for drips, and leave the area exposed for monitoring.',
+          caution: 'Shut the valve immediately if leaks persist or fittings shift.',
+        },
+      ],
+      validationChecks: [
+        'Run water for two minutes and confirm no drips along the repaired joints.',
+        'Touch fittings after an hour to ensure they remain dry.',
+        'Check the surrounding cabinet or floor the next morning for moisture.',
+      ],
+      troubleshooting: [
+        {
+          symptom: 'Minor drip returns later.',
+          fix: 'Retighten fittings, replace washers, or add fresh plumber tape to threads.',
+        },
+        {
+          symptom: 'Persistent leak despite new trap.',
+          fix: 'Check for cracks in adjoining pipes or misaligned seals upstream.',
+        },
+        {
+          symptom: 'Drain backs up after reassembly.',
+          fix: 'Verify the trap arm and vent are clear of debris before closing.',
+        },
+      ],
+      whenToCallProfessional: [
+        'Main shutoff will not close or is seized.',
+        'Leak is near electrical wiring or structural damage is present.',
+        'Visible mold, rotten framing, or sagging surfaces around the leak.',
+      ],
+      cleanupAndMaintenance: [
+        'Dry all surfaces thoroughly and run exhaust fans if available.',
+        'Disinfect the area and dispose of soaked towels responsibly.',
+        'Keep spare washers or gaskets labeled for the next maintenance cycle.',
+      ],
+    };
+  }
+
+  return {
+    overview: truncate(`Fallback repair roadmap for the ${roomLabel}, focusing on stabilizing ${issueFocus}.`),
+    estimatedTime: 'About 90 minutes including prep and verification.',
+    safetyGear: ['Work gloves', 'Safety glasses', 'Closed-toe shoes'],
+    requiredTools: [
+      { name: 'Multi-bit screwdriver', optional: false },
+      { name: 'Adjustable wrench', optional: false },
+      { name: 'Utility knife', optional: true },
+      { name: 'Flashlight', optional: false },
+      { name: 'Measuring tape', optional: true },
+      { name: 'Cordless drill', optional: true },
+    ],
     materials: [
-      'Replacement part that matches the damaged section',
-      'Thread seal tape or joint compound',
-      'All-purpose cleaner and disinfectant',
-      'Heavy duty trash bag for debris',
+      'Replacement component that matches the failed part',
+      'Threadlocker, sealant, or fasteners as required',
+      'Surface cleaner and microfiber cloths',
+      'Waste bag for debris and spent parts',
     ],
     preparation: [
-      'Shut off power or water serving the area before touching any hardware.',
-      'Clear the workspace and lay down towels or a tray to catch runoff.',
-      'Photograph the existing setup to match connections during reassembly.',
+      'Disable power, water, or fuel sources feeding the work area before starting.',
+      'Clear space to move freely and lay down a drop cloth for small parts.',
+      'Label or photograph existing connections for reference during reassembly.',
     ],
     stepByStep: [
       {
-        title: 'Stabilize the area',
-        detail: 'Use buckets or towels to manage leaks and verify the shutoff stops the flow before removing parts.',
-        caution: 'Do not leave water running when fittings are open.',
+        title: 'Make the area safe',
+        detail: 'Secure the workspace, relieve stored energy, and confirm utilities are off before touching the equipment.',
+        caution: 'Do not proceed until all power sources are locked out or isolated.',
       },
       {
-        title: 'Inspect and mark components',
-        detail: 'Identify the cracked or loose parts and mark connection points so replacements align with the original layout.',
-        caution: 'Take photos if more than one joint will be disassembled.',
+        title: 'Document and test components',
+        detail: 'Note wiring, fasteners, and alignment, then gently test for looseness to confirm failure points.',
+        caution: 'Avoid forcing stuck hardware; use penetrating oil or specialty tools instead.',
       },
       {
-        title: 'Disassemble the damaged section',
-        detail: 'Loosen fittings slowly and support pipes or fixtures to prevent stress on nearby connections.',
-        caution: 'Wear gloves to avoid cuts from sharp edges.',
+        title: 'Remove the damaged part',
+        detail: 'Support surrounding structures, loosen hardware in stages, and keep fasteners organized by location.',
+        caution: 'Watch for sharp edges or pinch points when parts separate.',
       },
       {
-        title: 'Install replacement parts',
-        detail: 'Apply thread seal tape where needed and tighten connections hand tight plus a quarter turn with a wrench.',
-        caution: 'Do not over tighten plastic components.',
+        title: 'Install the replacement',
+        detail: 'Fit the new component according to markings, tighten fasteners evenly, and align moving parts for smooth travel.',
+        caution: 'Do not exceed torque specs or mix mismatched hardware.',
       },
       {
-        title: 'Test and monitor',
-        detail: 'Restore service gradually, watch each joint for drips, and leave the area open for at least ten minutes to confirm the fix.',
-        caution: 'Shut off service immediately if you hear hissing or see pooling water.',
+        title: 'Restore service and verify',
+        detail: 'Re-enable utilities slowly, test function across normal use cases, and listen for unusual noise or vibration.',
+        caution: 'Shut things down immediately if smoke, heat, or unexpected movement appears.',
       },
     ],
     validationChecks: [
-      'Run the fixture for two minutes and look for moisture under all joints.',
-      'Feel around the repaired area for dampness after the first hour.',
-      'Verify surrounding surfaces are dry the following morning.',
+      'Component operates across normal settings without noise or hesitation.',
+      'Temperature, vibration, or alignment stays stable after a short runtime.',
+      'No warning lights or error codes appear once the system is reassembled.',
     ],
     troubleshooting: [
       {
-        symptom: 'Minor drip returns within the first day.',
-        fix: 'Retighten connections and reapply seal tape if threads feel loose.',
+        symptom: 'New component still misbehaves.',
+        fix: 'Confirm the root cause was addressed and check for secondary components that may also be worn.',
       },
       {
-        symptom: 'Persistent leak at a glued joint.',
-        fix: 'Replace the joint with a new coupling rather than trying to reseal old adhesive.',
+        symptom: 'Fasteners will not stay tight.',
+        fix: 'Use threadlocker or replace stripped hardware before continuing to use the equipment.',
       },
       {
-        symptom: 'Water stops flowing after reassembly.',
-        fix: 'Confirm shutoff valves are fully open and supply lines are not kinked.',
+        symptom: 'Unexpected noises after reassembly.',
+        fix: 'Recheck alignment, clearances, and any covers that might be rubbing.',
       },
     ],
     whenToCallProfessional: [
-      'Shutoff valves fail to close or are frozen in place.',
-      'Structural damage, sagging, or mold is visible around the affected area.',
-      'You are unsure how to match replacement parts or meet building codes.',
-      `Constraints limit the fix: ${constraintNote}`,
+      'Damage extends into hidden framing or structural supports.',
+      'Repairs require specialized tools or permits you do not have.',
+      'You cannot isolate the power or utilities safely.',
     ],
     cleanupAndMaintenance: [
-      'Dry the workspace completely and dispose of soaked materials.',
-      'Return tools to storage and document the repair date and parts used.',
-      'Check the area weekly for a month to confirm the leak does not return.',
+      'Collect debris, packaging, and old components for recycling or disposal.',
+      'Return tools to storage and wipe down the workspace.',
+      'Schedule a follow-up inspection a few days later to confirm everything holds.',
     ],
   };
 }
