@@ -1,0 +1,10 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-background",
+      "description": "Abstract gradient background for hero section",
+      "imageUrl": "https://picsum.photos/seed/junybase/1200/800",
+      "imageHint": "abstract gradient"
+    }
+  ]
+}
