@@ -129,8 +129,8 @@ export async function smartShoppingList(input: SmartShoppingListInput): Promise<
     });
   } catch (primaryError) {
     console.warn('Primary shopping plan parse failed, retrying with fallback model...', primaryError);
-    const fallbackText = await generateWithFallback({ ...baseOptions, skipPrimary: true });
     try {
+      const fallbackText = await generateWithFallback({ ...baseOptions, skipPrimary: true });
       const parsedFallback = attemptParse(fallbackText);
       const structuredFallback = SmartShoppingListResultSchema.parse(parsedFallback);
       return finalizeResult(structuredFallback, {
@@ -142,9 +142,137 @@ export async function smartShoppingList(input: SmartShoppingListInput): Promise<
       });
     } catch (fallbackError) {
       console.error('Fallback shopping plan parse failed', fallbackError);
-      throw fallbackError;
+      const structuredPlan = buildFallbackPlan({
+        normalizedCurrency,
+        priceProfile,
+        baselineBudget,
+        goals,
+        dietaryPreferences,
+        pantryItems,
+        householdSize,
+      });
+      return finalizeResult(structuredPlan, {
+        normalizedCurrency,
+        multiplier,
+        priceProfile,
+        baselineBudget,
+        budget,
+      });
     }
   }
+}
+
+function buildFallbackPlan(options: {
+  normalizedCurrency: string;
+  priceProfile: PriceAdjustmentProfile;
+  baselineBudget?: number;
+  goals: string;
+  dietaryPreferences?: string[];
+  pantryItems?: string[];
+  householdSize?: number;
+}): SmartShoppingListResult {
+  const {
+    normalizedCurrency,
+    baselineBudget,
+    goals,
+    dietaryPreferences,
+    pantryItems,
+    householdSize,
+    priceProfile,
+  } = options;
+
+  const safeGoals = goals.replace(/\s+/g, ' ').trim();
+  const preferenceSummary = dietaryPreferences && dietaryPreferences.length > 0 ? dietaryPreferences.join(', ') : 'balanced meals';
+  const pantrySummary = pantryItems && pantryItems.length > 0 ? pantryItems.slice(0, 3).join(', ') : 'existing staples';
+  const peopleLabel = householdSize && householdSize > 0 ? `${householdSize} people` : 'your household';
+
+  const baseCategories = [
+    {
+      category: 'Produce',
+      items: [
+        { name: 'Leafy greens mix', quantity: '3 bunches', estimatedCost: 12, nutritionNote: 'Fiber rich base for salads and sides' },
+        { name: 'Seasonal fruit assortment', quantity: '8 pieces', estimatedCost: 10, nutritionNote: 'Naturally sweet snacks and desserts' },
+      ],
+    },
+    {
+      category: 'Proteins',
+      items: [
+        { name: 'Lean protein pack', quantity: '6 servings', estimatedCost: 18, nutritionNote: 'Supports filling lunches and dinners' },
+        { name: 'Plant protein or beans', quantity: '4 cups', estimatedCost: 7, nutritionNote: 'Budget friendly protein rotation' },
+      ],
+    },
+    {
+      category: 'Grains and pantry',
+      items: [
+        { name: 'Whole grain staple', quantity: '2 pound bag', estimatedCost: 6, nutritionNote: 'Complex carbs for consistent energy' },
+        { name: 'Quick cook grain', quantity: '1 pound box', estimatedCost: 5, nutritionNote: 'Fast sides for busy nights' },
+        { name: 'Broth or sauce base', quantity: '2 cartons', estimatedCost: 4, nutritionNote: 'Flavor boost for soups and skillets' },
+      ],
+    },
+    {
+      category: 'Dairy and alternatives',
+      items: [
+        { name: 'Milk or fortified plant milk', quantity: '1 gallon', estimatedCost: 5, nutritionNote: 'Calcium support for breakfasts and baking' },
+        { name: 'Yogurt or probiotic cups', quantity: '6 cups', estimatedCost: 6, nutritionNote: 'Ready to eat snacks with protein' },
+      ],
+    },
+    {
+      category: 'Snacks and extras',
+      items: [
+        { name: 'Trail mix or nut blend', quantity: '1 large bag', estimatedCost: 6, nutritionNote: 'Keeps energy steady between meals' },
+        { name: 'Fresh herbs or aromatics', quantity: '3 bundles', estimatedCost: 4, nutritionNote: 'Adds bright flavor without extra salt' },
+      ],
+    },
+  ];
+
+  const baselineTarget = baselineBudget ?? Math.max(45, ((householdSize ?? 2) * 40));
+  const baseTotal = baseCategories.reduce((sum, category) => sum + category.items.reduce((categorySum, item) => categorySum + item.estimatedCost, 0), 0);
+  const scaleFactor = baseTotal > 0 ? baselineTarget / baseTotal : 1;
+
+  let scaledTotal = 0;
+  const scaledCategories = baseCategories.map((category) => ({
+    category: category.category,
+    items: category.items.map((item) => {
+      const scaledCost = Number((item.estimatedCost * scaleFactor).toFixed(2));
+      scaledTotal += scaledCost;
+      return {
+        ...item,
+        estimatedCost: scaledCost,
+      };
+    }),
+  }));
+
+  const nutritionHighlights = [
+    `Balanced spread of produce, proteins, grains, and snacks for ${peopleLabel}.`,
+    `Plan respects dietary focus on ${preferenceSummary}.`,
+    `Incorporates pantry items like ${pantrySummary} to cut waste and cost.`,
+  ];
+
+  const savingsTips = [
+    `Swap to store brands in ${priceProfile.name} markets to stay near budget.`,
+    'Purchase produce in season and freeze portions for later weeks.',
+    `Build meals around pantry items such as ${pantrySummary} before buying extras.`,
+  ];
+
+  const goalSnippet = safeGoals.slice(0, 140);
+  const goalPhrase = goalSnippet.length > 0 ? goalSnippet : 'the weekly goals you shared';
+  const mealPrepIdeas = [
+    'Batch cook a grain bowl base on day one for fast lunches.',
+    `Use the broth or sauce base with pantry staples to align with goals such as ${goalPhrase}.`,
+    'Prep grab and go snacks by portioning yogurt cups and fruit pairs.',
+  ];
+
+  return {
+    overview: `Fallback grocery outline for ${peopleLabel} with focus on ${preferenceSummary}.`,
+    estimatedTotal: Number(scaledTotal.toFixed(2)),
+    withinBudget: true,
+    budgetNotes: `Estimated baseline pricing in ${normalizedCurrency}. Adjust quantities to match actual store prices.`,
+    categoryBreakdown: scaledCategories,
+    nutritionHighlights,
+    savingsTips,
+    mealPrepIdeas,
+    currencyCode: normalizedCurrency,
+  };
 }
 
 function finalizeResult(
@@ -180,7 +308,7 @@ function finalizeResult(
     ? finalTotal <= Number((budget + 0.01).toFixed(2))
     : structured.withinBudget;
 
-  const localizationNote = `Localized using ${priceProfile.name} multiplier (~×${multiplier.toFixed(2)}). ${priceProfile.note}`;
+  const localizationNote = `Localized using ${priceProfile.name} multiplier (~x${multiplier.toFixed(2)}). ${priceProfile.note}`;
 
   const mergedBudgetNotes = structured.budgetNotes.includes('Localized using')
     ? structured.budgetNotes

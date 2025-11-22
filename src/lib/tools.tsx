@@ -35,6 +35,7 @@ import {
   RectangleHorizontal,
   Wallet,
   ShoppingCart,
+  Wrench,
 } from 'lucide-react';
 
 export type Tool = {
@@ -274,6 +275,14 @@ export const tools: Tool[] = [
     slug: 'smart-shopping-list',
     description: 'Build a budget-aware grocery plan with nutrition and meal prep tips.',
     icon: ShoppingCart,
+    category: 'AI',
+    isAi: true,
+  },
+  {
+    name: 'DIY Fix Guide',
+    slug: 'diy-fix-guide',
+    description: 'Diagnose household issues and get a safe, step-by-step repair walkthrough.',
+    icon: Wrench,
     category: 'AI',
     isAi: true,
   },

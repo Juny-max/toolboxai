@@ -59,7 +59,7 @@ export function SmartShoppingList() {
   const shareableList = useMemo(() => {
     if (!result) return "";
     const lines: string[] = [];
-    lines.push(`Region: ${result.regionLabel} • Multiplier: ×${result.costMultiplier.toFixed(2)}`);
+    lines.push(`Region: ${result.regionLabel} | Multiplier: x${result.costMultiplier.toFixed(2)}`);
     if (typeof result.targetBudget === "number") {
       lines.push(`Budget Target: ${formatAmount(result.targetBudget)}`);
     }
@@ -67,7 +67,7 @@ export function SmartShoppingList() {
     result.categoryBreakdown.forEach((category) => {
       lines.push(`\n${category.category}`);
       category.items.forEach((item) => {
-        lines.push(`- ${item.name} (${item.quantity}) • ${formatAmount(item.estimatedCost)}${item.nutritionNote ? ` — ${item.nutritionNote}` : ""}`);
+        lines.push(`- ${item.name} (${item.quantity}) | ${formatAmount(item.estimatedCost)}${item.nutritionNote ? ` - ${item.nutritionNote}` : ""}`);
       });
     });
     if (result.regionNote) {
@@ -154,7 +154,7 @@ export function SmartShoppingList() {
                 <SelectContent className="max-h-72">
                   {currencies.map((currency) => (
                     <SelectItem key={currency.code} value={currency.code}>
-                      {currency.code} — {currency.name}
+                      {currency.code} - {currency.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -179,7 +179,7 @@ export function SmartShoppingList() {
                 <SelectContent className="max-h-72">
                   {regionOptions.map((region) => (
                     <SelectItem key={region.code} value={region.code}>
-                      {region.name} {region.code !== 'GLOBAL' ? `• ×${region.multiplier.toFixed(2)}` : ''}
+                      {region.name}{region.code !== 'GLOBAL' ? ` (x${region.multiplier.toFixed(2)})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -187,7 +187,7 @@ export function SmartShoppingList() {
               <p className="text-xs text-muted-foreground">
                 {activeRegionProfile.code === 'GLOBAL'
                   ? 'No regional adjustment applied (using global averages).'
-                  : `Applies a ×${activeRegionProfile.multiplier.toFixed(2)} cost multiplier for ${activeRegionProfile.name}.`}
+                  : `Applies a x${activeRegionProfile.multiplier.toFixed(2)} cost multiplier for ${activeRegionProfile.name}.`}
               </p>
               {activeRegionProfile.code !== 'GLOBAL' && (
                 <p className="text-[0.7rem] text-muted-foreground">{activeRegionProfile.note}</p>
@@ -273,7 +273,7 @@ export function SmartShoppingList() {
                 <p>{result.overview}</p>
                 <p className="text-sm text-muted-foreground">{result.budgetNotes}</p>
                 <div className="text-xs text-muted-foreground">
-                  Localized for {result.regionLabel} with a ×{result.costMultiplier.toFixed(2)} multiplier. {result.regionNote}
+                  Localized for {result.regionLabel} with a x{result.costMultiplier.toFixed(2)} multiplier. {result.regionNote}
                 </div>
                 {typeof result.targetBudget === "number" && (
                   <div className="text-xs text-muted-foreground">

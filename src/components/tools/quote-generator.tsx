@@ -44,7 +44,7 @@ export function QuoteGenerator() {
             ) : quote && (
                 <blockquote className="space-y-4">
                     <p className="text-xl md:text-2xl font-semibold">"{quote.content}"</p>
-                    <footer className="text-muted-foreground">— {quote.author}</footer>
+                    <footer className="text-muted-foreground">- {quote.author}</footer>
                 </blockquote>
             )}
         </CardContent>

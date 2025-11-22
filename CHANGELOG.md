@@ -9,8 +9,8 @@ All notable changes to this project will be documented in this file.
 - Smart Shopping List now supports global currency selection and region-based price multipliers.
 - Fixed favicon filename casing for production deployments.
 - Added animated splash intro before the homepage.
+- Implemented DIY Fix Guide tool with safety-aware repair steps.
 - Planning implementation for:
   - Resume Tailor & Job Match
-  - DIY Fix Guide
   - Contract Clause Simplifier (with disclaimers)
   - Freelance Proposal Builder

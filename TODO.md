@@ -4,7 +4,7 @@
 - [ ] Resume Tailor & Job Match tool
 - [x] Meeting Notes Summarizer tool
 - [x] Smart Shopping List (Budget & Nutrition) tool
-- [ ] DIY Fix Guide tool
+- [x] DIY Fix Guide tool
 - [ ] Contract Clause Simplifier tool (with disclaimers)
 - [ ] Freelance Proposal Builder tool
 

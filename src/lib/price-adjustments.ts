@@ -136,7 +136,7 @@ export const priceAdjustmentProfiles: PriceAdjustmentProfile[] = [
     multiplier: 2.7,
     currencyCodes: ['GHS'],
     defaultCurrency: 'GHS',
-    note: 'Imported produce and staples commonly land 2.5–3x higher than the U.S. baseline.',
+    note: 'Imported produce and staples commonly land 2.5-3x higher than the U.S. baseline.',
   },
   {
     code: 'NG',
