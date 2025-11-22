@@ -154,6 +154,18 @@ function buildFallbackGuide(options: {
     ? limitedTools.map((tool) => ({ name: tool, optional: false }))
     : template.requiredTools;
 
+  const normalizedTools = requiredTools.map((tool) => ({
+    name: tool.name,
+    optional: tool.optional ?? false,
+    alternative: 'alternative' in tool ? tool.alternative : undefined,
+  }));
+
+  const normalizedSteps = template.stepByStep.map((step) => ({
+    title: step.title,
+    detail: step.detail,
+    caution: step.caution ?? 'Take proper safety precautions and disconnect power before continuing.',
+  }));
+
   const difficulty = skillLevel === 'beginner' ? 'moderate' : skillLevel === 'intermediate' ? 'moderate' : 'advanced';
   const estimatedTime = template.estimatedTime;
   const constraintNote = constraints ? constraints.trim().slice(0, 140) : 'No special constraints given.';
@@ -163,10 +175,10 @@ function buildFallbackGuide(options: {
     difficulty,
     estimatedTime,
     safetyGear: template.safetyGear,
-    requiredTools,
+    requiredTools: normalizedTools,
     materials: template.materials,
     preparation: template.preparation,
-    stepByStep: template.stepByStep,
+    stepByStep: normalizedSteps,
     validationChecks: template.validationChecks,
     troubleshooting: template.troubleshooting,
     whenToCallProfessional: [...template.whenToCallProfessional, `Constraints limit the fix: ${constraintNote}`],

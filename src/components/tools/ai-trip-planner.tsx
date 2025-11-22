@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { tripPlanner, TripPlannerOutput } from '@/ai/flows/trip-planner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { Loader2, Plane, X, Plus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
+import { SimpleMap } from './simple-map';
 export function TripPlanner() {
   const [destination, setDestination] = useState('Paris, France');
   const [duration, setDuration] = useState(3);
@@ -20,8 +20,15 @@ export function TripPlanner() {
   const [currentInterest, setCurrentInterest] = useState('');
   const [travelPace, setTravelPace] = useState<'relaxed' | 'moderate' | 'fast-paced'>('moderate');
   const [result, setResult] = useState<TripPlannerOutput | null>(null);
+  const [activeAccordion, setActiveAccordion] = useState('item-0');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (result) {
+      setActiveAccordion('item-0');
+    }
+  }, [result]);
 
   const handleAddInterest = () => {
     if (currentInterest && !interests.includes(currentInterest)) {
@@ -49,6 +56,20 @@ export function TripPlanner() {
       setLoading(false);
     }
   };
+
+  const parseAccordionIndex = (value: string) => {
+    const match = value.match(/item-(\d+)/);
+    if (!match) {
+      return 0;
+    }
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const activeDayIndex = result
+    ? Math.min(Math.max(0, parseAccordionIndex(activeAccordion)), Math.max(result.itinerary.length - 1, 0))
+    : 0;
+  const activeDay = result ? result.itinerary[activeDayIndex] : undefined;
 
   return (
     <div className="grid lg:grid-cols-3 gap-8 items-start">
@@ -131,24 +152,75 @@ export function TripPlanner() {
               <h2 className="text-2xl font-bold font-headline">{result.tripTitle}</h2>
               <p className="text-muted-foreground mt-1">{result.summary}</p>
             </div>
-            <Accordion type="single" collapsible defaultValue="item-0" className="w-full">
+            <Card>
+              <CardHeader>
+                <CardTitle>Map View</CardTitle>
+                <CardDescription>
+                  {activeDay ? `Locations for Day ${activeDay.day}` : 'Locations will appear after you generate an itinerary.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SimpleMap
+                  positions={
+                    activeDay
+                      ? activeDay.activities
+                          .filter((a) => a.resolvedLocation)
+                          .map((a) => ({
+                            lat: a.resolvedLocation!.lat,
+                            lng: a.resolvedLocation!.lng,
+                            label: a.locationName,
+                          }))
+                      : []
+                  }
+                  className="h-[360px] w-full rounded-lg border"
+                />
+              </CardContent>
+            </Card>
+            <Accordion
+              type="single"
+              collapsible
+              value={activeAccordion}
+              onValueChange={(value) => setActiveAccordion(value || 'item-0')}
+              className="w-full"
+            >
               {result.itinerary.map((day, index) => (
                 <AccordionItem value={`item-${index}`} key={day.day}>
                   <AccordionTrigger>
                     <div className="flex items-center gap-4 text-left">
-                        <span className="text-primary font-bold">Day {day.day}</span>
-                        <span>{day.title}</span>
+                      <span className="text-primary font-bold">Day {day.day}</span>
+                      <span>{day.title}</span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
-                    <ul className="space-y-4 pl-4 border-l">
+                    <ul className="space-y-4 border-l pl-4">
                       {day.activities.map((activity, actIndex) => (
                         <li key={actIndex} className="relative">
-                            <span className="absolute -left-[23px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-                                <span className="h-2 w-2 rounded-full bg-primary-foreground"></span>
-                            </span>
-                          <p className="font-semibold">{activity.time}: {activity.description}</p>
-                          {activity.details && <p className="text-sm text-muted-foreground">{activity.details}</p>}
+                          <span className="absolute -left-[23px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                            <span className="h-2 w-2 rounded-full bg-primary-foreground"></span>
+                          </span>
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-baseline gap-2">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {activity.time}
+                              </span>
+                              <span className="font-medium">{activity.locationName}</span>
+                              {activity.neighborhood && (
+                                <span className="text-xs text-muted-foreground">{activity.neighborhood}</span>
+                              )}
+                            </div>
+                            <p className="text-sm leading-relaxed">{activity.description}</p>
+                            {activity.details && (
+                              <p className="text-sm text-muted-foreground">{activity.details}</p>
+                            )}
+                            {activity.resolvedLocation?.displayName && (
+                              <p className="text-xs text-muted-foreground">
+                                Mapped as {activity.resolvedLocation.displayName}
+                              </p>
+                            )}
+                            {!activity.resolvedLocation && (
+                              <p className="text-xs text-muted-foreground">Location verification pending.</p>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
