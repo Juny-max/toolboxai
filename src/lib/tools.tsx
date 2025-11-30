@@ -307,7 +307,7 @@ export const tools: Tool[] = [
     slug: 'junycast',
     description: 'Weather app — opens in a new tab.',
     icon: Cloud,
-    category: 'Generators',
+    category: 'Weather Forecast',
     href: 'https://junycast.vercel.app/',
   },
 ];
@@ -317,6 +317,7 @@ export const toolCategories = [
   'Text',
   'Code',
   'Design',
+  'Weather Forecast',
   'Finance',
   'Generators',
   'Image',
