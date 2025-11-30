@@ -36,6 +36,7 @@ import {
   Wallet,
   ShoppingCart,
   Wrench,
+  Cloud,
 } from 'lucide-react';
 
 export type Tool = {
@@ -45,6 +46,7 @@ export type Tool = {
   icon: LucideIcon;
   category: string;
   isAi?: boolean;
+  href?: string;
 };
 
 export const tools: Tool[] = [
@@ -299,6 +301,14 @@ export const tools: Tool[] = [
     description: 'A classic brick-breaking arcade game.',
     icon: RectangleHorizontal,
     category: 'Games',
+  },
+  {
+    name: 'Junycast',
+    slug: 'junycast',
+    description: 'Weather app — opens in a new tab.',
+    icon: Cloud,
+    category: 'Generators',
+    href: 'https://junycast.vercel.app/',
   },
 ];
 

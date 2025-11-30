@@ -75,13 +75,20 @@ export default function ToolsLayout({
                     <SidebarMenuItem key={tool.slug}>
                       <SidebarMenuButton
                         asChild
-                        isActive={pathname === `/tools/${tool.slug}`}
+                        isActive={tool.href ? false : pathname === `/tools/${tool.slug}`}
                         tooltip={{children: tool.name}}
                       >
-                        <Link href={`/tools/${tool.slug}`}>
-                          <tool.icon />
-                          <span>{tool.name}</span>
-                        </Link>
+                        {tool.href ? (
+                          <Link href={tool.href} target="_blank" rel="noopener noreferrer">
+                            <tool.icon />
+                            <span>{tool.name}</span>
+                          </Link>
+                        ) : (
+                          <Link href={`/tools/${tool.slug}`}>
+                            <tool.icon />
+                            <span>{tool.name}</span>
+                          </Link>
+                        )}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
