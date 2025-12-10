@@ -187,15 +187,15 @@ const drawRoundedWall = (
   const right = left + cellSize;
   const bottom = top + cellSize;
 
-  // Create gradient for 3D effect
+  // Create authentic arcade-style gradient for walls
   const gradient = ctx.createLinearGradient(left, top, right, bottom);
-  gradient.addColorStop(0, '#2563eb');
-  gradient.addColorStop(0.5, '#1d4ed8');
-  gradient.addColorStop(1, '#1e40af');
+  gradient.addColorStop(0, '#2196F3');
+  gradient.addColorStop(0.5, '#1976D2');
+  gradient.addColorStop(1, '#0D47A1');
   
   ctx.fillStyle = gradient;
-  ctx.strokeStyle = '#3b82f6';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#42A5F5';
+  ctx.lineWidth = 0.5;
 
   ctx.beginPath();
 
@@ -254,19 +254,27 @@ const drawGlowingPellet = (
   const centerX = x;
   const centerY = y;
   
-  // Outer glow
-  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 2);
-  gradient.addColorStop(0, isPower ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 223, 186, 0.6)');
-  gradient.addColorStop(0.5, isPower ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 223, 186, 0.3)');
-  gradient.addColorStop(1, 'rgba(255, 223, 186, 0)');
-  
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, radius * 2, 0, 2 * Math.PI);
-  ctx.fill();
+  if (isPower) {
+    // Power pellet with soft glow
+    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 1.5);
+    gradient.addColorStop(0, 'rgba(255, 184, 108, 0.9)');
+    gradient.addColorStop(0.6, 'rgba(255, 184, 108, 0.5)');
+    gradient.addColorStop(1, 'rgba(255, 184, 108, 0)');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius * 1.5, 0, 2 * Math.PI);
+    ctx.fill();
+  }
 
-  // Main pellet
-  const pelletGradient = ctx.createRadialGradient(
+  // Main pellet - solid and clear
+  ctx.fillStyle = isPower ? '#FFB86C' : '#FFF8E1';
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+  ctx.fill();
+  
+  // Add slight highlight for 3D effect
+  const highlightGradient = ctx.createRadialGradient(
     centerX - radius * 0.3,
     centerY - radius * 0.3,
     0,
@@ -274,10 +282,10 @@ const drawGlowingPellet = (
     centerY,
     radius
   );
-  pelletGradient.addColorStop(0, isPower ? '#fff' : '#ffd');
-  pelletGradient.addColorStop(1, isPower ? '#ffd700' : '#ffdfba');
+  highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+  highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
   
-  ctx.fillStyle = pelletGradient;
+  ctx.fillStyle = highlightGradient;
   ctx.beginPath();
   ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
   ctx.fill();
@@ -295,21 +303,11 @@ const drawEnhancedPacman = (
   ctx.translate(x, y);
   ctx.rotate(angle);
 
-  // Outer glow
-  const glowGradient = ctx.createRadialGradient(0, 0, radius * 0.5, 0, 0, radius * 1.5);
-  glowGradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)');
-  glowGradient.addColorStop(0.7, 'rgba(255, 255, 0, 0.3)');
-  glowGradient.addColorStop(1, 'rgba(255, 255, 0, 0)');
-  ctx.fillStyle = glowGradient;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * 1.5, 0, 2 * Math.PI);
-  ctx.fill();
-
-  // Pac-Man body with gradient
-  const bodyGradient = ctx.createRadialGradient(-radius * 0.3, -radius * 0.3, 0, 0, 0, radius);
-  bodyGradient.addColorStop(0, '#ffff00');
-  bodyGradient.addColorStop(0.7, '#ffd700');
-  bodyGradient.addColorStop(1, '#ffaa00');
+  // Pac-Man body - classic arcade yellow
+  const bodyGradient = ctx.createRadialGradient(-radius * 0.25, -radius * 0.25, 0, 0, 0, radius);
+  bodyGradient.addColorStop(0, '#FFEB3B');
+  bodyGradient.addColorStop(0.8, '#FFC107');
+  bodyGradient.addColorStop(1, '#FF9800');
   
   ctx.fillStyle = bodyGradient;
   ctx.beginPath();
@@ -318,11 +316,13 @@ const drawEnhancedPacman = (
   ctx.closePath();
   ctx.fill();
 
-  // Add highlight
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-  ctx.beginPath();
-  ctx.arc(-radius * 0.3, -radius * 0.3, radius * 0.4, 0, 2 * Math.PI);
-  ctx.fill();
+  // Add eye when mouth is closing
+  if (openAmount < 0.15) {
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(-radius * 0.15, -radius * 0.4, radius * 0.12, 0, 2 * Math.PI);
+    ctx.fill();
+  }
 
   ctx.restore();
 };
@@ -335,66 +335,56 @@ const drawEnhancedGhost = (
   color: string,
   frameCount: number
 ) => {
-  // Ghost colors with gradients
-  const colorMap: Record<string, { main: string; light: string; dark: string }> = {
-    red: { main: '#ff0000', light: '#ff6b6b', dark: '#cc0000' },
-    pink: { main: '#ffb8ff', light: '#ffd6ff', dark: '#ff9edf' },
-    cyan: { main: '#00ffff', light: '#7dffff', dark: '#00cccc' },
-    orange: { main: '#ffb852', light: '#ffd08a', dark: '#ff9500' },
+  // Authentic arcade ghost colors
+  const colorMap: Record<string, { main: string; eyes: string }> = {
+    red: { main: '#FF0000', eyes: '#0000FF' },    // Blinky
+    pink: { main: '#FFB8FF', eyes: '#0000FF' },   // Pinky
+    cyan: { main: '#00FFFF', eyes: '#0000FF' },   // Inky
+    orange: { main: '#FFB851', eyes: '#0000FF' }, // Clyde
   };
 
   const colors = colorMap[color] || colorMap.red;
 
-  // Body with gradient
-  const bodyGradient = ctx.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
-  bodyGradient.addColorStop(0, colors.light);
-  bodyGradient.addColorStop(0.5, colors.main);
-  bodyGradient.addColorStop(1, colors.dark);
-
-  ctx.fillStyle = bodyGradient;
+  // Ghost body - solid color like arcade
+  ctx.fillStyle = colors.main;
   ctx.beginPath();
-  ctx.arc(x, y, radius, Math.PI, 0);
+  ctx.arc(x, y, radius, Math.PI, 0, false);
   
-  // Wavy bottom
-  const waveOffset = Math.sin(frameCount * 0.1) * 2;
-  const segments = 4;
+  // Wavy bottom animation
+  const waveOffset = Math.sin(frameCount * 0.15) * (radius * 0.15);
+  const segments = 3;
   const segmentWidth = (radius * 2) / segments;
   
   for (let i = 0; i < segments; i++) {
     const sx = x - radius + i * segmentWidth;
     const ex = sx + segmentWidth;
-    const cy = y + radius + (i % 2 === 0 ? waveOffset : -waveOffset);
-    ctx.lineTo(sx + segmentWidth / 2, cy);
+    const midX = sx + segmentWidth / 2;
+    const wave = i % 2 === 0 ? waveOffset : -waveOffset;
+    ctx.lineTo(midX, y + radius + wave);
     ctx.lineTo(ex, y + radius);
   }
   
   ctx.closePath();
   ctx.fill();
 
-  // Eyes
-  const eyeRadius = radius * 0.25;
-  const eyeOffsetX = radius * 0.3;
-  const eyeOffsetY = -radius * 0.2;
+  // Eyes - classic arcade style
+  const eyeRadius = radius * 0.3;
+  const eyeSpacing = radius * 0.4;
+  const eyeY = y - radius * 0.15;
 
-  // Left eye white
-  ctx.fillStyle = 'white';
+  // White of eyes
+  ctx.fillStyle = '#FFFFFF';
   ctx.beginPath();
-  ctx.arc(x - eyeOffsetX, y + eyeOffsetY, eyeRadius, 0, 2 * Math.PI);
-  ctx.fill();
-
-  // Right eye white
-  ctx.beginPath();
-  ctx.arc(x + eyeOffsetX, y + eyeOffsetY, eyeRadius, 0, 2 * Math.PI);
+  ctx.arc(x - eyeSpacing, eyeY, eyeRadius, 0, 2 * Math.PI);
+  ctx.arc(x + eyeSpacing, eyeY, eyeRadius, 0, 2 * Math.PI);
   ctx.fill();
 
   // Pupils
-  ctx.fillStyle = '#000080';
-  const pupilRadius = eyeRadius * 0.6;
+  ctx.fillStyle = colors.eyes;
+  const pupilRadius = eyeRadius * 0.5;
   ctx.beginPath();
-  ctx.arc(x - eyeOffsetX, y + eyeOffsetY, pupilRadius, 0, 2 * Math.PI);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(x + eyeOffsetX, y + eyeOffsetY, pupilRadius, 0, 2 * Math.PI);
+  ctx.arc(x - eyeSpacing, eyeY, pupilRadius, 0, 2 * Math.PI);
+  ctx.arc(x + eyeSpacing, eyeY, pupilRadius, 0, 2 * Math.PI);
   ctx.fill();
 };
 
@@ -506,11 +496,21 @@ export function PacmanGame() {
 
   useLayoutEffect(() => {
     const updateSize = () => {
-        if (containerRef.current) {
-            const containerWidth = containerRef.current.offsetWidth;
-            const newCellSize = Math.floor(containerWidth / COLS);
-            setCellSize(newCellSize);
-        }
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        // Account for all UI elements: header (56px), info bar (~80px), paddings (~60px), controls (~100px on mobile)
+        const isMobile = window.innerWidth < 768;
+        const reservedHeight = isMobile ? 320 : 200;
+        const availableHeight = window.innerHeight - reservedHeight;
+        
+        const widthBased = containerWidth / COLS;
+        const heightBased = availableHeight / ROWS;
+        
+        // Cap cell size: max 20px for desktop, 18px for mobile
+        const maxSize = isMobile ? 18 : 20;
+        const newCellSize = Math.floor(Math.min(widthBased, heightBased, maxSize));
+        setCellSize(Math.max(newCellSize, 10)); // minimum 10px
+      }
     };
     window.addEventListener('resize', updateSize);
     updateSize();
@@ -685,28 +685,28 @@ export function PacmanGame() {
   const canvasHeight = ROWS * cellSize;
 
   return (
-    <div ref={containerRef} className="w-full max-w-2xl mx-auto flex flex-col items-center gap-6">
-        <Card className="w-full border-2 border-blue-500/30 shadow-2xl shadow-blue-500/20 bg-gradient-to-b from-gray-900 to-black">
-            <CardContent className="p-6">
+    <div ref={containerRef} className="w-full max-w-2xl mx-auto flex flex-col items-center gap-3 py-2">
+        <Card className="w-full border border-blue-500/20 shadow-lg bg-black">
+            <CardContent className="p-3 sm:p-4">
               {/* Game Info Bar */}
-              <div className="flex justify-between items-center mb-4 bg-black/50 rounded-lg p-4 border border-blue-500/20">
-                <div className="flex items-center gap-4">
+              <div className="flex justify-between items-center mb-3 bg-gray-900/50 rounded-md px-3 py-2 border border-blue-500/10">
+                <div className="flex items-center gap-3 sm:gap-4">
                   <div className="text-center">
-                    <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Score</div>
-                    <div className="text-2xl font-bold text-yellow-400 font-mono tabular-nums">{score}</div>
+                    <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide mb-0.5">Score</div>
+                    <div className="text-lg sm:text-xl font-bold text-yellow-400 font-mono tabular-nums">{score}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Level</div>
-                    <div className="text-2xl font-bold text-cyan-400 font-mono tabular-nums">{level}</div>
+                    <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide mb-0.5">Level</div>
+                    <div className="text-lg sm:text-xl font-bold text-cyan-400 font-mono tabular-nums">{level}</div>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 uppercase tracking-wider">Lives</span>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide hidden sm:inline">Lives</span>
                     <div className="flex gap-1">
                       {Array.from({ length: lives }).map((_, i) => (
-                        <div key={i} className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 border-2 border-yellow-600" />
+                        <div key={i} className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-yellow-400 border border-yellow-500" />
                       ))}
                     </div>
                   </div>
@@ -714,16 +714,16 @@ export function PacmanGame() {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-8 w-8 text-gray-400 hover:text-white hover:bg-blue-500/20" 
+                    className="h-7 w-7 sm:h-8 sm:w-8 text-gray-400 hover:text-white hover:bg-blue-500/20" 
                     onClick={toggleMute}
                   >
-                    {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                    {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                   </Button>
                 </div>
               </div>
 
               {/* Game Canvas */}
-              <div className="relative rounded-lg overflow-hidden border-4 border-blue-600/40 shadow-inner shadow-blue-500/50">
+              <div className="relative rounded-md overflow-hidden border-2 border-blue-500/30">
                 <canvas
                   ref={canvasRef}
                   width={canvasWidth}
@@ -732,41 +732,41 @@ export function PacmanGame() {
                 />
 
                 {!gameStarted && (
-                  <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/90 backdrop-blur-sm">
-                    <div className="text-center space-y-6 p-8">
-                      <h2 className="text-6xl font-bold text-yellow-400 font-headline tracking-wider drop-shadow-[0_0_20px_rgba(255,255,0,0.5)]">
+                  <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/95">
+                    <div className="text-center space-y-4 p-6">
+                      <h2 className="text-4xl sm:text-5xl font-bold text-yellow-400 tracking-wide" style={{ fontFamily: 'Arial Black, sans-serif' }}>
                         PAC-MAN
                       </h2>
-                      <p className="text-gray-300 text-sm max-w-xs mx-auto">
-                        Eat all the dots while avoiding the ghosts. Grab power pellets to turn the tables!
+                      <p className="text-gray-400 text-xs sm:text-sm max-w-xs mx-auto">
+                        Eat all dots, avoid ghosts, grab power pellets!
                       </p>
                       <Button 
                         onClick={initGame} 
-                        className="mt-4 bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-8 py-6 text-lg rounded-full shadow-lg shadow-yellow-500/50 transition-all hover:scale-105"
+                        className="mt-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-6 py-3 sm:px-8 sm:py-4 text-sm sm:text-base rounded-full shadow-lg transition-all hover:scale-105"
                       >
                         Start Game
                       </Button>
-                      <div className="text-xs text-gray-500 space-y-1">
-                        <p>Use arrow keys or on-screen buttons to move</p>
+                      <div className="text-[10px] sm:text-xs text-gray-600">
+                        <p>Arrow keys or tap buttons to move</p>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {gameOver && (
-                  <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/90 backdrop-blur-sm">
-                    <div className="text-center space-y-6 p-8">
-                      <h2 className="text-5xl font-bold text-red-500 font-headline tracking-wider drop-shadow-[0_0_20px_rgba(255,0,0,0.5)] animate-pulse">
+                  <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/95">
+                    <div className="text-center space-y-4 p-6">
+                      <h2 className="text-3xl sm:text-4xl font-bold text-red-500 tracking-wide animate-pulse" style={{ fontFamily: 'Arial Black, sans-serif' }}>
                         GAME OVER
                       </h2>
-                      <div className="space-y-2">
-                        <p className="text-gray-400 text-sm uppercase tracking-wider">Final Score</p>
-                        <p className="text-yellow-400 text-4xl font-bold font-mono">{score}</p>
-                        <p className="text-gray-400 text-sm">Level {level}</p>
+                      <div className="space-y-1.5">
+                        <p className="text-gray-500 text-xs uppercase tracking-wider">Final Score</p>
+                        <p className="text-yellow-400 text-3xl sm:text-4xl font-bold font-mono">{score}</p>
+                        <p className="text-gray-500 text-xs">Level {level}</p>
                       </div>
                       <Button 
                         onClick={initGame} 
-                        className="mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-6 text-lg rounded-full shadow-lg shadow-blue-500/50 transition-all hover:scale-105"
+                        className="mt-3 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 sm:px-8 sm:py-4 text-sm sm:text-base rounded-full shadow-lg transition-all hover:scale-105"
                       >
                         Play Again
                       </Button>
@@ -779,41 +779,39 @@ export function PacmanGame() {
         
         {/* Mobile Controls */}
         {gameStarted && !gameOver && (
-            <div className="grid grid-cols-3 gap-3 md:hidden w-full max-w-xs">
+            <div className="grid grid-cols-3 gap-2 md:hidden w-full max-w-xs">
                 <div />
                 <Button 
                   variant="outline" 
-                  className="h-20 w-20 bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 border-2 border-blue-400 text-white shadow-lg active:scale-95 transition-transform" 
+                  className="h-16 w-16 bg-blue-600 hover:bg-blue-500 border-2 border-blue-400 text-white shadow-md active:scale-95 transition-transform" 
                   onPointerDown={() => handleMove(0, -1)}
                 >
-                  <ArrowUp size={32} />
+                  <ArrowUp size={28} />
                 </Button>
                 <div />
                 <Button 
                   variant="outline" 
-                  className="h-20 w-20 bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 border-2 border-blue-400 text-white shadow-lg active:scale-95 transition-transform" 
+                  className="h-16 w-16 bg-blue-600 hover:bg-blue-500 border-2 border-blue-400 text-white shadow-md active:scale-95 transition-transform" 
                   onPointerDown={() => handleMove(-1, 0)}
                 >
-                  <ArrowLeft size={32} />
+                  <ArrowLeft size={28} />
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-20 w-20 bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 border-2 border-blue-400 text-white shadow-lg active:scale-95 transition-transform" 
+                  className="h-16 w-16 bg-blue-600 hover:bg-blue-500 border-2 border-blue-400 text-white shadow-md active:scale-95 transition-transform" 
                   onPointerDown={() => handleMove(0, 1)}
                 >
-                  <ArrowDown size={32} />
+                  <ArrowDown size={28} />
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-20 w-20 bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 border-2 border-blue-400 text-white shadow-lg active:scale-95 transition-transform" 
+                  className="h-16 w-16 bg-blue-600 hover:bg-blue-500 border-2 border-blue-400 text-white shadow-md active:scale-95 transition-transform" 
                   onPointerDown={() => handleMove(1, 0)}
                 >
-                  <ArrowRight size={32} />
+                  <ArrowRight size={28} />
                 </Button>
             </div>
         )}
     </div>
   );
-}
-
-    
+}    
