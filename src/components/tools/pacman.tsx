@@ -498,18 +498,18 @@ export function PacmanGame() {
     const updateSize = () => {
       if (containerRef.current) {
         const containerWidth = containerRef.current.offsetWidth;
-        // Account for all UI elements: header (56px), info bar (~80px), paddings (~60px), controls (~100px on mobile)
+        // Account for: navbar (56px), page header (80px), info bar (60px), paddings (40px), controls (mobile 120px)
         const isMobile = window.innerWidth < 768;
-        const reservedHeight = isMobile ? 320 : 200;
+        const reservedHeight = isMobile ? 400 : 280;
         const availableHeight = window.innerHeight - reservedHeight;
         
         const widthBased = containerWidth / COLS;
         const heightBased = availableHeight / ROWS;
         
-        // Cap cell size: max 20px for desktop, 18px for mobile
-        const maxSize = isMobile ? 18 : 20;
+        // Cap cell size even smaller: max 13px for desktop, 11px for mobile
+        const maxSize = isMobile ? 11 : 13;
         const newCellSize = Math.floor(Math.min(widthBased, heightBased, maxSize));
-        setCellSize(Math.max(newCellSize, 10)); // minimum 10px
+        setCellSize(Math.max(newCellSize, 7)); // minimum 7px
       }
     };
     window.addEventListener('resize', updateSize);
@@ -586,8 +586,8 @@ export function PacmanGame() {
         drawGlowingPellet(ctx, centerX, centerY, pulseRadius, p.type === 'power');
       });
 
-      // Move Pac-Man
-      if (frameCount % 10 === 0) {
+      // Move Pac-Man (faster movement - every 3 frames)
+      if (frameCount % 3 === 0) {
         const { x, y, dx, dy } = pacman.current;
         const nextX = x + dx;
         const nextY = y + dy;
@@ -597,8 +597,8 @@ export function PacmanGame() {
         }
       }
       
-      // Animate Pac-Man mouth
-      pacman.current.open += pacman.current.openRate;
+      // Animate Pac-Man mouth (faster animation)
+      pacman.current.open += pacman.current.openRate * 2;
       if (pacman.current.open > 0.4 || pacman.current.open < 0) {
           pacman.current.openRate *= -1;
       }
@@ -627,8 +627,8 @@ export function PacmanGame() {
         nextLevel();
       }
 
-      // Move ghosts
-      const ghostSpeed = Math.max(4, 12 - level);
+      // Move ghosts (faster at higher levels - 2-6 frames)
+      const ghostSpeed = Math.max(2, 6 - Math.floor(level / 2));
       if (frameCount % ghostSpeed === 0) {
         ghosts.current.forEach(g => {
             const { x, y, dx, dy } = g;
@@ -685,11 +685,11 @@ export function PacmanGame() {
   const canvasHeight = ROWS * cellSize;
 
   return (
-    <div ref={containerRef} className="w-full max-w-2xl mx-auto flex flex-col items-center gap-3 py-2">
+    <div ref={containerRef} className="w-full max-w-xl mx-auto flex flex-col items-center gap-1">
         <Card className="w-full border border-blue-500/20 shadow-lg bg-black">
-            <CardContent className="p-3 sm:p-4">
+            <CardContent className="p-1.5 sm:p-2">
               {/* Game Info Bar */}
-              <div className="flex justify-between items-center mb-3 bg-gray-900/50 rounded-md px-3 py-2 border border-blue-500/10">
+              <div className="flex justify-between items-center mb-1.5 bg-gray-900/50 rounded-md px-2 py-1 border border-blue-500/10">
                 <div className="flex items-center gap-3 sm:gap-4">
                   <div className="text-center">
                     <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide mb-0.5">Score</div>
