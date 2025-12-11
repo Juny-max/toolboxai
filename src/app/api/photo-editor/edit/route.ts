@@ -12,7 +12,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+    // DO NOT CHANGE THIS MODEL - Required for image editing
+    const modelName = "gemini-2.5-flash-image-preview";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
     
     const payload = {
       contents: [{
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest) {
         ]
       }],
       generationConfig: {
-        responseModalities: ["IMAGE"]
+        responseModalities: ["IMAGE", "TEXT"]
       }
     };
 

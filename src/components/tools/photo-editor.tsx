@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Wand2, Upload, Download, RotateCcw, RotateCw, 
   FlipHorizontal, FlipVertical, Paintbrush, Type,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 
 export default function PhotoEditor() {
+  const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +147,10 @@ export default function PhotoEditor() {
     setFlipH(1);
     setFlipV(1);
     setDrawActions([]);
+    toast({
+      title: "Reset Complete",
+      description: "All filters and edits have been reset",
+    });
   };
 
   const saveImage = () => {
@@ -270,7 +276,7 @@ export default function PhotoEditor() {
     }
     
     const data = await response.json();
-    return data.image;
+    return data.text || data.image; // Support both text and image responses
   };
 
   const callGenerateAPI = async (prompt: string) => {
@@ -311,9 +317,17 @@ export default function PhotoEditor() {
         setCurrentImage(img);
         setDrawActions(drawActions.filter(a => a.type !== 'mask'));
         setCurrentTool('none');
+        toast({
+          title: "Success!",
+          description: "Object removed successfully",
+        });
       };
     } catch (error: any) {
-      alert("Magic Eraser failed: " + error.message);
+      toast({
+        title: "Magic Eraser Failed",
+        description: error.message,
+        variant: "destructive",
+      });
       setApiConfigured(false);
     } finally {
       setLoading(false);
@@ -322,7 +336,11 @@ export default function PhotoEditor() {
 
   const applyMagicPreset = async (prompt: string) => {
     if (!currentImage) {
-      alert("Load an image first!");
+      toast({
+        title: "No Image",
+        description: "Please load an image first.",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -342,9 +360,17 @@ export default function PhotoEditor() {
         setCurrentImage(img);
         setDrawActions([]);
         resetSettings();
+        toast({
+          title: "Magic Applied!",
+          description: "Image transformed successfully",
+        });
       };
     } catch (error: any) {
-      alert("Magic failed: " + error.message);
+      toast({
+        title: "Magic Failed",
+        description: error.message,
+        variant: "destructive",
+      });
       setApiConfigured(false);
     } finally {
       setLoading(false);
@@ -365,9 +391,17 @@ export default function PhotoEditor() {
         setCurrentImage(img);
         resetSettings();
         setDrawActions([]);
+        toast({
+          title: "Success!",
+          description: "Image generated successfully.",
+        });
       };
     } catch (error: any) {
-      alert("Generation failed: " + error.message);
+      toast({
+        title: "Generation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
       setApiConfigured(false);
     } finally {
       setLoading(false);
@@ -388,8 +422,16 @@ export default function PhotoEditor() {
       const base64 = canvas.toDataURL("image/png").split(',')[1];
       const text = await callVisionAPI("Generate 3 short, witty captions + hashtags.", base64);
       setCaptionResult(text);
+      toast({
+        title: "Captions Generated!",
+        description: "Check below for AI-generated captions.",
+      });
     } catch (error: any) {
-      alert("Caption failed: " + error.message);
+      toast({
+        title: "Caption Failed",
+        description: error.message,
+        variant: "destructive",
+      });
       setApiConfigured(false);
     } finally {
       setLoading(false);
@@ -712,8 +754,15 @@ export default function PhotoEditor() {
           </div>
 
           <div className="flex gap-2">
-            <Button size="sm" variant="secondary" onClick={resetSettings}>
-              <Trash2 size={16} className="mr-2" /> Reset
+            <Button size="sm" variant="secondary" onClick={resetSettings} disabled={!currentImage}>
+              <RotateCcw size={16} className="mr-2" /> Reset
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => {
+              setCurrentImage(null);
+              resetSettings();
+              toast({ title: "Image Cleared", description: "Canvas cleared successfully" });
+            }} disabled={!currentImage}>
+              <Trash2 size={16} className="mr-2" /> Clear
             </Button>
             <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
               <Upload size={16} className="mr-2" /> Open
