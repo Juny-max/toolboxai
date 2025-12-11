@@ -13,6 +13,17 @@ import {
   Trash2, Undo2, Redo2, Image as ImageIcon,
   MessageSquare, Sparkles, Volume2, VolumeX
 } from "lucide-react";
+import {
+  canEdit,
+  canGenerate,
+  incrementEdits,
+  incrementGenerations,
+  incrementCaptions,
+  getWarningMessage,
+  LIMITS,
+  type UsageData,
+  getUsageData
+} from "@/lib/photo-editor-usage";
 
 export default function PhotoEditor() {
   const { toast } = useToast();
@@ -55,6 +66,14 @@ export default function PhotoEditor() {
   const [textContent, setTextContent] = useState("");
   const [captionResult, setCaptionResult] = useState("");
   const [apiConfigured, setApiConfigured] = useState(true); // Assume configured, check on use
+  
+  // Usage tracking
+  const [usageData, setUsageData] = useState<UsageData | null>(null);
+
+  // Load usage data on mount
+  useEffect(() => {
+    getUsageData().then(setUsageData);
+  }, []);
 
   // Render canvas
   const renderCanvas = () => {
@@ -299,6 +318,17 @@ export default function PhotoEditor() {
   const handleMagicEraser = async () => {
     if (!currentImage) return;
     
+    // Check usage limit
+    const check = await canEdit();
+    if (!check.allowed) {
+      toast({
+        title: "Daily Limit Reached",
+        description: check.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
     setLoadingText("🪄 Removing object...");
     
@@ -313,13 +343,21 @@ export default function PhotoEditor() {
       
       const img = new Image();
       img.src = `data:image/png;base64,${newImg64}`;
-      img.onload = () => {
+      img.onload = async () => {
         setCurrentImage(img);
         setDrawActions(drawActions.filter(a => a.type !== 'mask'));
         setCurrentTool('none');
+        
+        // Increment usage
+        const newCount = await incrementEdits();
+        setUsageData(await getUsageData());
+        
+        // Check for warnings
+        const warning = getWarningMessage(newCount, LIMITS.DAILY_EDIT_LIMIT);
+        
         toast({
           title: "Success!",
-          description: "Object removed successfully",
+          description: warning || "Object removed successfully",
         });
       };
     } catch (error: any) {
@@ -344,6 +382,17 @@ export default function PhotoEditor() {
       return;
     }
     
+    // Check usage limit
+    const check = await canEdit();
+    if (!check.allowed) {
+      toast({
+        title: "Daily Limit Reached",
+        description: check.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
     setLoadingText("✨ Casting spell...");
     
@@ -356,13 +405,21 @@ export default function PhotoEditor() {
       
       const img = new Image();
       img.src = `data:image/png;base64,${newImg64}`;
-      img.onload = () => {
+      img.onload = async () => {
         setCurrentImage(img);
         setDrawActions([]);
         resetSettings();
+        
+        // Increment usage
+        const newCount = await incrementEdits();
+        setUsageData(await getUsageData());
+        
+        // Check for warnings
+        const warning = getWarningMessage(newCount, LIMITS.DAILY_EDIT_LIMIT);
+        
         toast({
           title: "Magic Applied!",
-          description: "Image transformed successfully",
+          description: warning || "Image transformed successfully",
         });
       };
     } catch (error: any) {
@@ -380,6 +437,17 @@ export default function PhotoEditor() {
   const handleGenerate = async () => {
     if (!genPrompt) return;
     
+    // Check usage limit
+    const check = await canGenerate();
+    if (!check.allowed) {
+      toast({
+        title: "Daily Limit Reached",
+        description: check.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
     setLoadingText("✨ Generating image...");
     
@@ -387,13 +455,21 @@ export default function PhotoEditor() {
       const base64 = await callGenerateAPI(genPrompt);
       const img = new Image();
       img.src = `data:image/png;base64,${base64}`;
-      img.onload = () => {
+      img.onload = async () => {
         setCurrentImage(img);
         resetSettings();
         setDrawActions([]);
+        
+        // Increment usage
+        const newCount = await incrementGenerations();
+        setUsageData(await getUsageData());
+        
+        // Check for warnings
+        const warning = getWarningMessage(newCount, LIMITS.DAILY_GENERATION_LIMIT);
+        
         toast({
           title: "Success!",
-          description: "Image generated successfully.",
+          description: warning || "Image generated successfully.",
         });
       };
     } catch (error: any) {
@@ -422,6 +498,11 @@ export default function PhotoEditor() {
       const base64 = canvas.toDataURL("image/png").split(',')[1];
       const text = await callVisionAPI("Generate 3 short, witty captions + hashtags.", base64);
       setCaptionResult(text);
+      
+      // Increment caption count (no limit, just tracking)
+      await incrementCaptions();
+      setUsageData(await getUsageData());
+      
       toast({
         title: "Captions Generated!",
         description: "Check below for AI-generated captions.",
@@ -439,7 +520,7 @@ export default function PhotoEditor() {
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col md:flex-row gap-4">
+    <div className="min-h-[calc(100vh-120px)] flex flex-col md:flex-row gap-4">
       {/* Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm">
@@ -449,7 +530,7 @@ export default function PhotoEditor() {
       )}
 
       {/* Sidebar */}
-      <aside className="w-full md:w-80 bg-slate-900 rounded-lg border border-slate-800 flex flex-col overflow-hidden">
+      <aside className="w-full md:w-80 bg-slate-900 rounded-lg border border-slate-800 flex flex-col overflow-hidden max-h-[50vh] md:max-h-none">
         {/* Tabs */}
         <div className="flex border-b border-slate-800">
           <button
@@ -647,6 +728,32 @@ export default function PhotoEditor() {
           {/* Magic Panel */}
           {activeTab === 'magic' && (
             <>
+              {/* Usage Indicator */}
+              {usageData && (
+                <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Today's Usage</h3>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Edits</span>
+                      <span className={`font-semibold ${usageData.edits >= LIMITS.DAILY_EDIT_LIMIT ? 'text-red-400' : usageData.edits >= LIMITS.DAILY_EDIT_LIMIT - 5 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                        {usageData.edits} / {LIMITS.DAILY_EDIT_LIMIT}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Generations</span>
+                      <span className={`font-semibold ${usageData.generations >= LIMITS.DAILY_GENERATION_LIMIT ? 'text-red-400' : usageData.generations >= LIMITS.DAILY_GENERATION_LIMIT - 3 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                        {usageData.generations} / {LIMITS.DAILY_GENERATION_LIMIT}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Captions</span>
+                      <span className="font-semibold text-blue-400">{usageData.captions} (unlimited)</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-2">Resets daily at midnight</p>
+                </div>
+              )}
+              
               <div>
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">AI Quick Actions</h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -730,7 +837,7 @@ export default function PhotoEditor() {
       </aside>
 
       {/* Canvas Area */}
-      <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 relative flex items-center justify-center overflow-hidden"
+      <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 relative flex items-center justify-center overflow-hidden min-h-[60vh] md:min-h-0"
         style={{
           backgroundImage: `
             linear-gradient(45deg, #1e293b 25%, transparent 25%),
@@ -743,32 +850,32 @@ export default function PhotoEditor() {
         }}
       >
         {/* Header Controls */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
-          <div className="flex gap-2">
-            <Button size="sm" variant="secondary" disabled title="Undo">
+        <div className="absolute top-2 left-2 right-2 md:top-4 md:left-4 md:right-4 flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center z-10">
+          <div className="flex gap-1 sm:gap-2">
+            <Button size="sm" variant="secondary" disabled title="Undo" className="hidden sm:flex">
               <Undo2 size={16} />
             </Button>
-            <Button size="sm" variant="secondary" disabled title="Redo">
+            <Button size="sm" variant="secondary" disabled title="Redo" className="hidden sm:flex">
               <Redo2 size={16} />
             </Button>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2 flex-wrap">
             <Button size="sm" variant="secondary" onClick={resetSettings} disabled={!currentImage}>
-              <RotateCcw size={16} className="mr-2" /> Reset
+              <RotateCcw size={14} className="sm:mr-2" /> <span className="hidden sm:inline">Reset</span>
             </Button>
             <Button size="sm" variant="destructive" onClick={() => {
               setCurrentImage(null);
               resetSettings();
               toast({ title: "Image Cleared", description: "Canvas cleared successfully" });
             }} disabled={!currentImage}>
-              <Trash2 size={16} className="mr-2" /> Clear
+              <Trash2 size={14} className="sm:mr-2" /> <span className="hidden sm:inline">Clear</span>
             </Button>
             <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
-              <Upload size={16} className="mr-2" /> Open
+              <Upload size={14} className="sm:mr-2" /> <span className="hidden sm:inline">Open</span>
             </Button>
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500" onClick={saveImage} disabled={!currentImage}>
-              <Download size={16} className="mr-2" /> Save
+              <Download size={14} className="sm:mr-2" /> <span className="hidden sm:inline">Save</span>
             </Button>
           </div>
         </div>
@@ -799,7 +906,7 @@ export default function PhotoEditor() {
         ) : (
           <canvas
             ref={canvasRef}
-            className={`max-w-full max-h-full object-contain shadow-2xl ${
+            className={`w-full h-full max-w-full max-h-full object-contain shadow-2xl ${
               currentTool === 'brush' ? 'cursor-crosshair' :
               currentTool === 'magic-eraser' ? 'cursor-cell' :
               currentTool === 'text' ? 'cursor-text' : ''
