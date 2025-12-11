@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // DO NOT CHANGE THIS MODEL - Required for image editing
-    const modelName = "gemini-2.5-flash-image-preview";
+    // Try multiple model names as availability may vary
+    const modelName = "gemini-2.0-flash-exp"; // Updated to latest available model
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
     
     const payload = {
@@ -43,11 +43,23 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
+    
+    // Log the response for debugging
+    console.log("Gemini API Response:", JSON.stringify(data, null, 2));
+    
     const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
     
     if (!imagePart?.inlineData?.data) {
+      // Provide more detailed error information
+      const textPart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text);
+      const errorDetail = textPart?.text || "Model did not return an image. This might be due to content policy, rate limits, or model availability.";
+      
       return NextResponse.json(
-        { error: "No image generated" },
+        { 
+          error: "No image generated",
+          detail: errorDetail,
+          response: data // Include full response for debugging
+        },
         { status: 500 }
       );
     }

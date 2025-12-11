@@ -342,10 +342,15 @@ export default function PhotoEditor() {
     
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'API request failed');
+      const errorMessage = error.detail || error.error || 'API request failed';
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();
+    if (data.error) {
+      const errorMessage = data.detail || data.error;
+      throw new Error(errorMessage);
+    }
     return data.text || data.image; // Support both text and image responses
   };
 
