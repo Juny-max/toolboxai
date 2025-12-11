@@ -888,7 +888,7 @@ export default function PhotoEditor() {
       </aside>
 
       {/* Canvas Area */}
-      <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 relative flex items-center justify-center overflow-hidden min-h-[60vh] md:min-h-0"
+      <div className="flex-1 bg-slate-950 rounded-lg border border-slate-800 relative flex items-center justify-center overflow-hidden min-h-[60vh] md:min-h-0 touch-none"
         style={{
           backgroundImage: `
             linear-gradient(45deg, #1e293b 25%, transparent 25%),
@@ -957,11 +957,12 @@ export default function PhotoEditor() {
         ) : (
           <canvas
             ref={canvasRef}
-            className={`w-full h-full max-w-full max-h-full object-contain shadow-2xl ${
+            className={`w-full h-full max-w-full max-h-full object-contain shadow-2xl touch-none ${
               currentTool === 'brush' ? 'cursor-crosshair' :
               currentTool === 'magic-eraser' ? 'cursor-cell' :
               currentTool === 'text' ? 'cursor-text' : ''
             }`}
+            style={{ touchAction: 'none' }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}

@@ -12,7 +12,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`;
+    // Use imagen-4.0-generate-001 with predict endpoint
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
     
     const payload = {
       instances: [{ prompt }],
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ image: data.predictions[0].bytesBase64Encoded });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: error.message || "Image generation failed. Try a simpler prompt." },
       { status: 500 }
     );
   }
