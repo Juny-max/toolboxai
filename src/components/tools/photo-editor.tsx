@@ -412,12 +412,13 @@ export default function PhotoEditor() {
         });
       };
     } catch (error: any) {
+      const isApiKeyError = error.message?.includes("API key") || error.message?.includes("not configured");
       toast({
         title: "Magic Eraser Failed",
         description: error.message,
         variant: "destructive",
       });
-      setApiConfigured(false);
+      if (isApiKeyError) setApiConfigured(false);
     } finally {
       setLoading(false);
     }
@@ -474,12 +475,13 @@ export default function PhotoEditor() {
         });
       };
     } catch (error: any) {
+      const isApiKeyError = error.message?.includes("API key") || error.message?.includes("not configured");
       toast({
         title: "Magic Failed",
         description: error.message,
         variant: "destructive",
       });
-      setApiConfigured(false);
+      if (isApiKeyError) setApiConfigured(false);
     } finally {
       setLoading(false);
     }
@@ -524,12 +526,13 @@ export default function PhotoEditor() {
         });
       };
     } catch (error: any) {
+      const isApiKeyError = error.message?.includes("API key") || error.message?.includes("not configured");
       toast({
         title: "Generation Failed",
         description: error.message,
         variant: "destructive",
       });
-      setApiConfigured(false);
+      if (isApiKeyError) setApiConfigured(false);
     } finally {
       setLoading(false);
     }
@@ -559,12 +562,13 @@ export default function PhotoEditor() {
         description: "Check below for AI-generated captions.",
       });
     } catch (error: any) {
+      const isApiKeyError = error.message?.includes("API key") || error.message?.includes("not configured");
       toast({
         title: "Caption Failed",
         description: error.message,
         variant: "destructive",
       });
-      setApiConfigured(false);
+      if (isApiKeyError) setApiConfigured(false);
     } finally {
       setLoading(false);
     }
@@ -878,7 +882,7 @@ export default function PhotoEditor() {
               {!apiConfigured && (
                 <div className="p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
                   <p className="text-xs text-yellow-200">
-                    ⚠️ AI features require <code className="bg-black/30 px-1 py-0.5 rounded">GOOGLE_GENERATIVE_AI_API_KEY</code> in <code className="bg-black/30 px-1 py-0.5 rounded">.env.local</code>
+                    ⚠️ AI features are not configured. Please check that <code className="bg-black/30 px-1 py-0.5 rounded">GOOGLE_GENERATIVE_AI_API_KEY</code> is set in your environment variables.
                   </p>
                 </div>
               )}
