@@ -52,8 +52,7 @@ export default function PhotoEditor() {
   const [genPrompt, setGenPrompt] = useState("");
   const [textContent, setTextContent] = useState("");
   const [captionResult, setCaptionResult] = useState("");
-  
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+  const [apiConfigured, setApiConfigured] = useState(true); // Assume configured, check on use
 
   // Render canvas
   const renderCanvas = () => {
@@ -241,6 +240,162 @@ export default function PhotoEditor() {
 
   const hasMask = drawActions.some(a => a.type === 'mask');
 
+  // API Calls
+  const callVisionAPI = async (prompt: string, base64Image: string) => {
+    const response = await fetch('/api/photo-editor/vision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, base64Image }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'API request failed');
+    }
+    
+    const data = await response.json();
+    return data.text;
+  };
+
+  const callEditAPI = async (prompt: string, base64Image: string) => {
+    const response = await fetch('/api/photo-editor/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, base64Image }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'API request failed');
+    }
+    
+    const data = await response.json();
+    return data.image;
+  };
+
+  const callGenerateAPI = async (prompt: string) => {
+    const response = await fetch('/api/photo-editor/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'API request failed');
+    }
+    
+    const data = await response.json();
+    return data.image;
+  };
+
+  // AI Handlers
+  const handleMagicEraser = async () => {
+    if (!currentImage) return;
+    
+    setLoading(true);
+    setLoadingText("🪄 Removing object...");
+    
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const base64 = canvas.toDataURL("image/png").split(',')[1];
+      const prompt = "The area highlighted in transparent red is a mask. Remove the object inside the red mask and fill it in to match the surrounding background naturally. The final image must NOT have any red marks.";
+      
+      const newImg64 = await callEditAPI(prompt, base64);
+      
+      const img = new Image();
+      img.src = `data:image/png;base64,${newImg64}`;
+      img.onload = () => {
+        setCurrentImage(img);
+        setDrawActions(drawActions.filter(a => a.type !== 'mask'));
+        setCurrentTool('none');
+      };
+    } catch (error: any) {
+      alert("Magic Eraser failed: " + error.message);
+      setApiConfigured(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyMagicPreset = async (prompt: string) => {
+    if (!currentImage) {
+      alert("Load an image first!");
+      return;
+    }
+    
+    setLoading(true);
+    setLoadingText("✨ Casting spell...");
+    
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const base64 = canvas.toDataURL("image/png").split(',')[1];
+      const newImg64 = await callEditAPI(prompt, base64);
+      
+      const img = new Image();
+      img.src = `data:image/png;base64,${newImg64}`;
+      img.onload = () => {
+        setCurrentImage(img);
+        setDrawActions([]);
+        resetSettings();
+      };
+    } catch (error: any) {
+      alert("Magic failed: " + error.message);
+      setApiConfigured(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!genPrompt) return;
+    
+    setLoading(true);
+    setLoadingText("✨ Generating image...");
+    
+    try {
+      const base64 = await callGenerateAPI(genPrompt);
+      const img = new Image();
+      img.src = `data:image/png;base64,${base64}`;
+      img.onload = () => {
+        setCurrentImage(img);
+        resetSettings();
+        setDrawActions([]);
+      };
+    } catch (error: any) {
+      alert("Generation failed: " + error.message);
+      setApiConfigured(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCaption = async () => {
+    if (!currentImage) return;
+    
+    setLoading(true);
+    setLoadingText("📝 Analyzing...");
+    setCaptionResult("");
+    
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const base64 = canvas.toDataURL("image/png").split(',')[1];
+      const text = await callVisionAPI("Generate 3 short, witty captions + hashtags.", base64);
+      setCaptionResult(text);
+    } catch (error: any) {
+      alert("Caption failed: " + error.message);
+      setApiConfigured(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col md:flex-row gap-4">
       {/* Loading Overlay */}
@@ -395,7 +550,7 @@ export default function PhotoEditor() {
               {hasMask && currentTool === 'magic-eraser' && (
                 <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg space-y-3">
                   <p className="text-xs text-red-100">Paint over the object you want to remove. It will be marked in <span className="text-red-400 font-bold">RED</span>.</p>
-                  <Button className="w-full bg-red-600 hover:bg-red-500" disabled={!apiKey}>
+                  <Button className="w-full bg-red-600 hover:bg-red-500" onClick={handleMagicEraser}>
                     <Sparkles size={16} className="mr-2" /> Remove Object
                   </Button>
                 </div>
@@ -453,19 +608,19 @@ export default function PhotoEditor() {
               <div>
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">AI Quick Actions</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="h-auto py-3 flex flex-col items-start" disabled={!apiKey || !currentImage}>
+                  <Button variant="outline" className="h-auto py-3 flex flex-col items-start" disabled={!currentImage} onClick={() => applyMagicPreset('Remove the background and make it transparent')}>
                     <ImageIcon size={16} className="mb-1" />
                     <span className="text-xs">Remove BG</span>
                   </Button>
-                  <Button variant="outline" className="h-auto py-3 flex flex-col items-start" disabled={!apiKey || !currentImage}>
+                  <Button variant="outline" className="h-auto py-3 flex flex-col items-start" disabled={!currentImage} onClick={() => applyMagicPreset('Blur the background to simulate depth of field')}>
                     <span className="text-lg mb-1">💧</span>
                     <span className="text-xs">Blur BG</span>
                   </Button>
-                  <Button variant="outline" className="h-auto py-3 flex flex-col items-start" disabled={!apiKey || !currentImage}>
+                  <Button variant="outline" className="h-auto py-3 flex flex-col items-start" disabled={!currentImage} onClick={() => applyMagicPreset('Colorize this black and white photo naturally')}>
                     <span className="text-lg mb-1">🎨</span>
                     <span className="text-xs">Colorize</span>
                   </Button>
-                  <Button variant="outline" className="h-auto py-3 flex flex-col items-start" disabled={!apiKey || !currentImage}>
+                  <Button variant="outline" className="h-auto py-3 flex flex-col items-start" disabled={!currentImage} onClick={() => applyMagicPreset('Sharpen this image and enhance details')}>
                     <span className="text-lg mb-1">⚡</span>
                     <span className="text-xs">Sharpen</span>
                   </Button>
@@ -484,7 +639,7 @@ export default function PhotoEditor() {
                     placeholder="e.g. 'Make it look like a pencil sketch'"
                     className="bg-slate-950 border-slate-700"
                   />
-                  <Button className="w-full bg-purple-600 hover:bg-purple-500" disabled={!apiKey || !currentImage}>
+                  <Button className="w-full bg-purple-600 hover:bg-purple-500" disabled={!currentImage || !magicPrompt} onClick={() => applyMagicPreset(magicPrompt)}>
                     Apply Magic Edit
                   </Button>
                 </CardContent>
@@ -502,28 +657,28 @@ export default function PhotoEditor() {
                     placeholder="e.g. 'A futuristic city'"
                     className="bg-slate-950 border-slate-700"
                   />
-                  <Button className="w-full bg-blue-600 hover:bg-blue-500" disabled={!apiKey}>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-500" disabled={!genPrompt} onClick={handleGenerate}>
                     Generate Image
                   </Button>
                 </CardContent>
               </Card>
 
-              <Button variant="outline" className="w-full" disabled={!apiKey || !currentImage}>
+              <Button variant="outline" className="w-full" disabled={!currentImage} onClick={handleCaption}>
                 <MessageSquare size={16} className="mr-2" /> Caption Assistant
               </Button>
               
               {captionResult && (
                 <Card className="bg-slate-950 border-slate-700">
-                  <CardContent className="p-3 text-xs text-slate-300">
+                  <CardContent className="p-3 text-xs text-slate-300 whitespace-pre-wrap">
                     {captionResult}
                   </CardContent>
                 </Card>
               )}
 
-              {!apiKey && (
+              {!apiConfigured && (
                 <div className="p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
                   <p className="text-xs text-yellow-200">
-                    ⚠️ Set <code className="bg-black/30 px-1 py-0.5 rounded">NEXT_PUBLIC_GEMINI_API_KEY</code> in <code className="bg-black/30 px-1 py-0.5 rounded">.env.local</code> to enable AI features.
+                    ⚠️ AI features require <code className="bg-black/30 px-1 py-0.5 rounded">GOOGLE_GENERATIVE_AI_API_KEY</code> in <code className="bg-black/30 px-1 py-0.5 rounded">.env.local</code>
                   </p>
                 </div>
               )}
