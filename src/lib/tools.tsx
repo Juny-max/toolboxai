@@ -167,6 +167,14 @@ export const tools: Tool[] = [
     isAi: true,
   },
   {
+    name: 'FlowBoard AI',
+    slug: 'flowboard',
+    description: 'AI-powered kanban board for visual project management.',
+    icon: ClipboardList,
+    category: 'Productivity',
+    isAi: true,
+  },
+  {
     name: 'Image Compressor',
     slug: 'image-compressor',
     description: 'Compress JPG, PNG, and WEBP images client-side.',
@@ -330,5 +338,6 @@ export const toolCategories = [
   'Generators',
   'Image',
   'Developer',
+  'Productivity',
   'Games',
 ];
