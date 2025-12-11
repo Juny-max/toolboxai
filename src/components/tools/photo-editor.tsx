@@ -190,7 +190,7 @@ export default function PhotoEditor() {
     }
   };
 
-  const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getMousePos = (e: React.MouseEvent<HTMLCanvasElement> | React.Touch) => {
     const canvas = canvasRef.current;
     if (!canvas || !currentImage) return { x: 0, y: 0 };
 
@@ -259,6 +259,57 @@ export default function PhotoEditor() {
   };
 
   const handleMouseUp = () => {
+    setIsDrawing(false);
+    setCurrentStroke(null);
+  };
+
+  // Touch event handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!currentImage || currentTool === 'none') return;
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    const pos = getMousePos(touch);
+
+    if (currentTool === 'text') {
+      if (textContent) {
+        setDrawActions([...drawActions, { 
+          type: 'text', 
+          text: textContent, 
+          x: pos.x, 
+          y: pos.y, 
+          color: drawColor, 
+          size: drawSize 
+        }]);
+      }
+      return;
+    }
+
+    setIsDrawing(true);
+    const type = currentTool === 'magic-eraser' ? 'mask' : 'stroke';
+    const newStroke = {
+      type,
+      tool: currentTool,
+      color: drawColor,
+      size: drawSize,
+      points: [pos],
+    };
+    setCurrentStroke(newStroke);
+    setDrawActions([...drawActions, newStroke]);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !currentTool || currentTool === 'text' || !currentStroke) return;
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    const pos = getMousePos(touch);
+    currentStroke.points.push(pos);
+    setDrawActions([...drawActions.slice(0, -1), { ...currentStroke }]);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     setIsDrawing(false);
     setCurrentStroke(null);
   };
@@ -915,6 +966,9 @@ export default function PhotoEditor() {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           />
         )}
       </div>
