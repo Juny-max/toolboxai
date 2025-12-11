@@ -159,6 +159,14 @@ export const tools: Tool[] = [
     isAi: true,
   },
   {
+    name: 'Photo Editor',
+    slug: 'photo-editor',
+    description: 'Professional photo editor with AI-powered Gemini magic tools.',
+    icon: Sparkles,
+    category: 'Image',
+    isAi: true,
+  },
+  {
     name: 'Image Compressor',
     slug: 'image-compressor',
     description: 'Compress JPG, PNG, and WEBP images client-side.',
