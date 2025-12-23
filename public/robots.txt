@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login
+Allow: /
+
+# Point crawlers to the sitemap
+Sitemap: https://junybase.vercel.app/sitemap.xml
+
+# Note: robots.txt is advisory. Do not rely on it for protecting sensitive data.
