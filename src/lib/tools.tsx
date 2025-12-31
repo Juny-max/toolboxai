@@ -161,7 +161,7 @@ export const tools: Tool[] = [
   {
     name: 'Photo Editor',
     slug: 'photo-editor',
-    description: 'Professional photo editor with AI-powered Gemini magic tools.',
+    description: 'Professional photo editor with AI-powered magic tools.',
     icon: Sparkles,
     category: 'Image',
     isAi: true,
