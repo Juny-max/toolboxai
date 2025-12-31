@@ -36,6 +36,7 @@ export default function PhotoEditor() {
   const [currentTool, setCurrentTool] = useState<'none' | 'brush' | 'magic-eraser' | 'text'>('none');
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState("Processing...");
+  const [loadingAnimation, setLoadingAnimation] = useState<'imagegen' | 'castspell' | null>(null);
   
   // Filters
   const [brightness, setBrightness] = useState(100);
@@ -143,6 +144,52 @@ export default function PhotoEditor() {
   useEffect(() => {
     renderCanvas();
   }, [currentImage, brightness, contrast, saturation, hue, blur, rotation, flipH, flipV, drawActions]);
+
+  // Ensure lottie web component is available (no npm dependency required)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (document.querySelector('script[data-lottie]')) return;
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js';
+    s.async = true;
+    s.setAttribute('data-lottie', 'true');
+    document.body.appendChild(s);
+  }, []);
+
+  const LottiePlayerWrapper = ({ src, style }: { src: string; style?: React.CSSProperties }) => {
+    const ref = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+      const container = ref.current;
+      if (!container) return;
+      container.innerHTML = '';
+
+      let mounted = true;
+      const attach = () => {
+        if (!mounted) return;
+        const hasPlayer = (window as any).customElements && (window as any).customElements.get && (window as any).customElements.get('lottie-player');
+        if (!hasPlayer) {
+          setTimeout(attach, 80);
+          return;
+        }
+        const el = document.createElement('lottie-player');
+        el.setAttribute('src', src);
+        el.setAttribute('background', 'transparent');
+        el.setAttribute('speed', '1');
+        el.setAttribute('loop', '');
+        el.setAttribute('autoplay', '');
+        if (style) Object.assign(el.style, style);
+        container.appendChild(el);
+      };
+
+      attach();
+      return () => {
+        mounted = false;
+        if (container) container.innerHTML = '';
+      };
+    }, [src, style]);
+
+    return <div ref={ref} />;
+  };
 
   const loadImage = (file: File) => {
     const url = URL.createObjectURL(file);
@@ -452,6 +499,7 @@ export default function PhotoEditor() {
     
     setLoading(true);
     setLoadingText("✨ Casting spell...");
+    setLoadingAnimation('castspell');
     
     try {
       const canvas = canvasRef.current;
@@ -489,6 +537,7 @@ export default function PhotoEditor() {
       if (isApiKeyError) setApiConfigured(false);
     } finally {
       setLoading(false);
+      setLoadingAnimation(null);
     }
   };
 
@@ -508,6 +557,7 @@ export default function PhotoEditor() {
     
     setLoading(true);
     setLoadingText("✨ Generating image...");
+    setLoadingAnimation('imagegen');
     
     try {
       const base64 = await callGenerateAPI(genPrompt);
@@ -540,6 +590,7 @@ export default function PhotoEditor() {
       if (isApiKeyError) setApiConfigured(false);
     } finally {
       setLoading(false);
+      setLoadingAnimation(null);
     }
   };
 
@@ -584,7 +635,17 @@ export default function PhotoEditor() {
       {/* Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <div className="mb-4">
+            {loadingAnimation === 'imagegen' && (
+              <LottiePlayerWrapper src={'/Imagegen.json'} style={{ width: 120, height: 120 }} />
+            )}
+            {loadingAnimation === 'castspell' && (
+              <LottiePlayerWrapper src={'/castspell.json'} style={{ width: 120, height: 120 }} />
+            )}
+            {!loadingAnimation && (
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            )}
+          </div>
           <p className="text-white font-medium animate-pulse">{loadingText}</p>
         </div>
       )}
