@@ -106,6 +106,8 @@ const NOMINATIM_HEADERS: Record<string, string> = {
 
 const geocodeCache = new Map<string, Promise<ResolvedLocation | null>>();
 
+const MAX_TRIP_DAYS = 14;
+
 export async function tripPlanner(input: TripPlannerInput): Promise<TripPlannerOutput> {
   const { destination, duration, interests, travelPace } = TripPlannerInputSchema.parse(input);
 
@@ -126,6 +128,12 @@ Each activity object must include:
 - details: string (optional)
 
 Guidelines:
+- The itinerary array length MUST be exactly ${duration}. Include one entry per day, no fewer and no extra days.
+- Day numbers must start at 1 and increase sequentially with no gaps.
+- Pace alignment rules:
+  - relaxed: about 3 activities per day
+  - moderate: about 4 activities per day
+  - fast-paced: about 5 activities per day
 - Verify that every locationName is a real place in ${destination}. Use official names and avoid inventing venues. If unsure, pick a widely recognized landmark, museum, park, market, or restaurant.
 - Keep day titles and activities distinct; avoid repeating the same text across days.
 - For trips longer than 7 days, mix in lighter "reset" moments (e.g., slower mornings, free afternoons) and vary neighborhoods or themes.
@@ -178,8 +186,61 @@ Return ONLY the JSON object, nothing else.`;
     plan = await buildFallbackTripPlan({ destination, duration, interests, travelPace });
   }
 
-  const enrichedPlan = await enrichItineraryWithLocations(plan, destination);
+  const normalizedPlan = await normalizeTripPlan({
+    plan,
+    destination,
+    duration,
+    interests,
+    travelPace,
+  });
+
+  const enrichedPlan = await enrichItineraryWithLocations(normalizedPlan, destination);
   return TripPlannerOutputSchema.parse(enrichedPlan);
+}
+
+async function normalizeTripPlan(options: {
+  plan: TripPlannerOutput;
+  destination: TripPlannerInput['destination'];
+  duration: TripPlannerInput['duration'];
+  interests: TripPlannerInput['interests'];
+  travelPace: TripPlannerInput['travelPace'];
+}): Promise<TripPlannerOutput> {
+  const { plan, destination, duration, interests, travelPace } = options;
+  const safeDuration = Number.isFinite(duration) && duration > 0 ? Math.min(duration, MAX_TRIP_DAYS) : 3;
+
+  const fallbackPlan = await buildFallbackTripPlan({
+    destination,
+    duration: safeDuration,
+    interests,
+    travelPace,
+  });
+
+  const sourceDays = Array.isArray(plan.itinerary) ? plan.itinerary : [];
+  const itinerary = Array.from({ length: safeDuration }, (_, index) => {
+    const dayNumber = index + 1;
+    const sourceDay = sourceDays[index];
+    const fallbackDay = fallbackPlan.itinerary[index];
+    const isRechargeDay = dayNumber > 3 && dayNumber % 4 === 0;
+    const targetActivities = getTargetActivityCount(travelPace, isRechargeDay);
+
+    const title = sourceDay?.title?.trim() ? sourceDay.title.trim() : fallbackDay.title;
+    const activities = normalizeActivitiesForCount(sourceDay?.activities ?? [], fallbackDay.activities, targetActivities);
+
+    return {
+      day: dayNumber,
+      title,
+      activities,
+    };
+  });
+
+  const tripTitle = normalizeDurationText(plan.tripTitle, safeDuration) ?? fallbackPlan.tripTitle;
+  const summary = normalizeDurationText(plan.summary, safeDuration) ?? fallbackPlan.summary;
+
+  return {
+    tripTitle,
+    summary,
+    itinerary,
+  };
 }
 
 // Provides a deterministic itinerary when both AI model passes fail so the UI never breaks.
@@ -191,7 +252,7 @@ async function buildFallbackTripPlan(options: {
 }): Promise<TripPlannerOutput> {
   const { destination, duration, interests, travelPace } = options;
   const safeDestination = destination.trim().length > 0 ? destination.trim() : 'your chosen city';
-  const safeDuration = Number.isFinite(duration) && duration > 0 ? Math.min(duration, 14) : 3;
+  const safeDuration = Number.isFinite(duration) && duration > 0 ? Math.min(duration, MAX_TRIP_DAYS) : 3;
   const interestListRaw = interests.length > 0 ? interests : ['Local Highlights'];
   const interestList = interestListRaw.map((entry) => entry.trim()).filter((entry) => entry.length > 0);
   if (interestList.length === 0) {
@@ -284,7 +345,7 @@ function buildActivitiesForDay(options: {
   }
 
   const library = getPaceLibrary(travelPace);
-  const activityCount = travelPace === 'relaxed' ? 3 : 4;
+  const activityCount = getTargetActivityCount(travelPace, false);
   const startIndex = (dayNumber - 1) % library.length;
 
   return Array.from({ length: activityCount }, (_, slot) => {
@@ -318,6 +379,58 @@ function buildActivitiesForDay(options: {
       resolvedLocation: suggestion?.resolvedLocation,
     };
   });
+}
+
+function getTargetActivityCount(travelPace: TripPlannerInput['travelPace'], isRechargeDay: boolean): number {
+  if (isRechargeDay) {
+    return 3;
+  }
+
+  if (travelPace === 'relaxed') {
+    return 3;
+  }
+
+  if (travelPace === 'fast-paced') {
+    return 5;
+  }
+
+  return 4;
+}
+
+function normalizeActivitiesForCount(
+  sourceActivities: TripPlannerOutput['itinerary'][number]['activities'],
+  fallbackActivities: TripPlannerOutput['itinerary'][number]['activities'],
+  targetCount: number
+): TripPlannerOutput['itinerary'][number]['activities'] {
+  const sanitizedSource: TripPlannerOutput['itinerary'][number]['activities'] = sourceActivities
+    .map((activity) => ({
+      ...activity,
+      time: activity.time.trim(),
+      locationName: activity.locationName.trim(),
+      description: activity.description.trim(),
+      details: activity.details?.trim(),
+      neighborhood: activity.neighborhood?.trim(),
+    }))
+    .filter((activity) => activity.time.length > 0 && activity.locationName.length > 0 && activity.description.length > 0);
+
+  const merged: TripPlannerOutput['itinerary'][number]['activities'] = sanitizedSource.slice(0, targetCount);
+  let fallbackIndex = 0;
+
+  while (merged.length < targetCount && fallbackActivities.length > 0) {
+    merged.push(fallbackActivities[fallbackIndex % fallbackActivities.length]);
+    fallbackIndex += 1;
+  }
+
+  return merged;
+}
+
+function normalizeDurationText(value: string, duration: number): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.replace(/\b\d+\s*-\s*days?\b|\b\d+\s*days?\b/gi, `${duration}-Day`);
 }
 
 function getPaceLibrary(pace: TripPlannerInput['travelPace']): PaceTemplate[] {
