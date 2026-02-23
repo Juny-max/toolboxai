@@ -31,7 +31,11 @@ export const getFingerprint = async (): Promise<string> => {
 
 // Get current date (YYYY-MM-DD)
 const getCurrentDate = (): string => {
-  return new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Get usage data from localStorage
@@ -43,9 +47,20 @@ export const getUsageData = async (): Promise<UsageData> => {
     try {
       const data: UsageData = JSON.parse(stored);
       
-      // Reset if different day or different fingerprint
-      if (data.lastReset !== getCurrentDate() || data.fingerprint !== fingerprint) {
+      // Reset only when the local day changes
+      if (data.lastReset !== getCurrentDate()) {
         return resetUsageData(fingerprint);
+      }
+
+      // Some mobile browsers rotate fingerprint values between refreshes.
+      // Keep usage counters and only refresh stored identity.
+      if (data.fingerprint !== fingerprint) {
+        const updatedData: UsageData = {
+          ...data,
+          fingerprint,
+        };
+        saveUsageData(updatedData);
+        return updatedData;
       }
       
       return data;
